@@ -4,6 +4,7 @@ import {
   StyleSheet, SafeAreaView, ActivityIndicator
 } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
+import { isOverdue } from '../services/choreService';
 
 export default function KidScreen({ route, navigation }: any) {
   const { kidId, kidName, color } = route.params;
@@ -48,6 +49,10 @@ export default function KidScreen({ route, navigation }: any) {
     const isPending = item.status === 'pending';
     const isApproved = item.status === 'approved';
     const isRejected = item.status === 'rejected';
+    const overdue = isOverdue(item);
+    const dueLabel = item.dueDate
+      ? new Date(item.dueDate).toLocaleDateString('en-CA', { weekday: 'long', month: 'short', day: 'numeric' })
+      : null;
 
     return (
       <TouchableOpacity
@@ -60,6 +65,7 @@ export default function KidScreen({ route, navigation }: any) {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={[styles.cardTitle, (isPending || isApproved) && styles.cardTitleDone]}>{item.title}</Text>
+          {dueLabel && <Text style={[styles.due, overdue && styles.dueOverdue]}>Due: {dueLabel}{overdue ? ' · Overdue' : ''}</Text>}
           {isPending && <Text style={[styles.tag, { color }]}>Waiting for approval...</Text>}
           {isApproved && <Text style={[styles.tag, { color: '#22c55e' }]}>✓ Approved!</Text>}
           {isRejected && <>
@@ -140,6 +146,8 @@ const styles = StyleSheet.create({
   cardTitle: { fontWeight: '800', fontSize: 15, color: '#1a1a2e', marginBottom: 3 },
   cardTitleDone: { color: '#9999bb' },
   tag: { fontSize: 12, fontWeight: '700' },
+  due: { fontSize: 11, fontWeight: '700', color: '#9999bb', marginBottom: 2 },
+  dueOverdue: { color: '#dc2626' },
   rejectNote: { fontSize: 12, color: '#dc2626', fontWeight: '600', backgroundColor: '#fee2e2', borderRadius: 8, padding: 6, marginTop: 4 },
   resubmitBtn: { borderRadius: 8, padding: 6, paddingHorizontal: 10, alignSelf: 'flex-start', marginTop: 6 },
   resubmitText: { color: '#fff', fontWeight: '800', fontSize: 12 },

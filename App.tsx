@@ -1,13 +1,19 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import firestore from '@react-native-firebase/firestore';
 import RoleSelectScreen from './src/screens/RoleSelectScreen';
 import ManagerScreen from './src/screens/ManagerScreen';
 import KidScreen from './src/screens/KidScreen';
+import { resetWeeklyChores } from './src/services/choreService';
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
+  useEffect(() => {
+    resetWeeklyChores(firestore()).catch(e => console.warn('resetWeeklyChores failed', e));
+  }, []);
+
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
