@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "858139388832",
+    "project_id": "chorebuddy-67a5f",
+    "storage_bucket": "chorebuddy-67a5f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:858139388832:android:0e8a2f9c63626e265e92c5",
+        "android_client_info": {
+          "package_name": "com.chorebuddy"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCHiDAnGI8xUtnCd5GP5bmxtgA4OmO6ynA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
