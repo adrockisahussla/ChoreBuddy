@@ -12,7 +12,20 @@
           "package_name": "com.chorebuddy"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "858139388832-tkt51eb4ol4mq6epna32v2uu16ovlir1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.chorebuddy",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "858139388832-lcmr06c4pf64m3fp4p4ivf8fcj47it23.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCHiDAnGI8xUtnCd5GP5bmxtgA4OmO6ynA"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "858139388832-lcmr06c4pf64m3fp4p4ivf8fcj47it23.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

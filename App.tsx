@@ -6,8 +6,12 @@ import RoleSelectScreen from './src/screens/RoleSelectScreen';
 import ManagerScreen from './src/screens/ManagerScreen';
 import KidScreen from './src/screens/KidScreen';
 import { resetWeeklyChores } from './src/services/choreService';
+import { configureGoogleSignin } from './src/config/google';
+import AuthGateway from './src/AuthGateway';
 
 const Stack = createNativeStackNavigator();
+
+configureGoogleSignin();
 
 export default function App() {
   useEffect(() => {
@@ -15,12 +19,14 @@ export default function App() {
   }, []);
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="RoleSelect" component={RoleSelectScreen} />
-        <Stack.Screen name="Manager" component={ManagerScreen} />
-        <Stack.Screen name="Kid" component={KidScreen} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <AuthGateway>
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="RoleSelect" component={RoleSelectScreen} />
+          <Stack.Screen name="Manager" component={ManagerScreen} />
+          <Stack.Screen name="Kid" component={KidScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </AuthGateway>
   );
 }
