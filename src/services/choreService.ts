@@ -13,7 +13,6 @@ export const choreService = {
     col().doc(id).delete(),
 };
 
-// Optional client-side weekly regeneration (kept for compatibility — not auto-run)
 export const resetWeeklyChores = async (
   db: FirebaseFirestoreTypes.Module = firestore()
 ): Promise<void> => {
@@ -28,9 +27,10 @@ export const resetWeeklyChores = async (
     if (c.dueDate && c.dueDate < Date.now() && c.status !== 'approved' && !c.overdue) {
       await db.collection('chores').doc(c.id).update({ overdue: true });
     }
-    const exists = current.some((x: any) => x.title === c.title && x.assignedTo === c.assignedTo);
+    const exists = current.some((x: any) => x.title === c.title && x.assignedTo === c.assignedTo && x.familyId === c.familyId);
     if (!exists) {
       await db.collection('chores').add({
+        familyId: c.familyId,
         title: c.title,
         assignedTo: c.assignedTo,
         recurrence: 'weekly',
@@ -42,12 +42,11 @@ export const resetWeeklyChores = async (
         overdue: false,
         createdAt: Date.now(),
       });
-      current.push({ title: c.title, assignedTo: c.assignedTo, weekOf: cw } as any);
+      current.push({ familyId: c.familyId, title: c.title, assignedTo: c.assignedTo, weekOf: cw } as any);
     }
   }
 };
 
 export { getWeekOf, getEndOfWeek, currentWeek };
 export { isOverdue } from '../utils/buddy';
-// Legacy alias for backward compat with the old screens
 export const getCurrentWeekOf = currentWeek;

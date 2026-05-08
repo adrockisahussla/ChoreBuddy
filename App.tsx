@@ -1,15 +1,11 @@
 import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import firestore from '@react-native-firebase/firestore';
-import RoleSelectScreen from './src/screens/RoleSelectScreen';
-import ManagerScreen from './src/screens/ManagerScreen';
-import KidScreen from './src/screens/KidScreen';
 import { resetWeeklyChores } from './src/services/choreService';
 import { configureGoogleSignin } from './src/config/google';
 import AuthGateway from './src/AuthGateway';
-
-const Stack = createNativeStackNavigator();
+import DrawerNavigator from './src/navigation/DrawerNavigator';
 
 configureGoogleSignin();
 
@@ -19,14 +15,12 @@ export default function App() {
   }, []);
 
   return (
-    <AuthGateway>
-      <NavigationContainer>
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="RoleSelect" component={RoleSelectScreen} />
-          <Stack.Screen name="Manager" component={ManagerScreen} />
-          <Stack.Screen name="Kid" component={KidScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
-    </AuthGateway>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthGateway>
+        <NavigationContainer>
+          <DrawerNavigator />
+        </NavigationContainer>
+      </AuthGateway>
+    </GestureHandlerRootView>
   );
 }

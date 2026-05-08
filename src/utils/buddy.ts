@@ -1,7 +1,16 @@
-import { Chore, Recurrence } from '../types';
+import { Chore, Recurrence, User } from '../types';
 
-export const buddyLabel = (k: string): string =>
-  k === 'Kid1' ? 'Buddy 1' : k === 'Kid2' ? 'Buddy 2' : k;
+/** Format a buddy's display name from a user list. Falls back to the raw id. */
+export const buddyLabel = (uid: string, buddies?: User[]): string => {
+  if (buddies && buddies.length) {
+    const b = buddies.find(x => x.uid === uid);
+    if (b) return b.displayName;
+  }
+  // Legacy fallback for unmigrated data
+  if (uid === 'Kid1') return 'Buddy 1';
+  if (uid === 'Kid2') return 'Buddy 2';
+  return uid;
+};
 
 export const POINTS_PER: Record<Recurrence, number> = { daily: 5, weekly: 15, once: 10 };
 

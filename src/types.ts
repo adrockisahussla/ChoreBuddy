@@ -8,8 +8,9 @@ export type Role = 'manager' | 'buddy';
 
 export interface Chore {
   id: string;
+  familyId: string;
   title: string;
-  assignedTo: string;
+  assignedTo: string;          // buddy's user-doc uid
   status: ChoreStatus;
   rejectionNote: string;
   recurrence: Recurrence;
@@ -23,6 +24,7 @@ export interface Chore {
 
 export interface ChorePoolItem {
   id: string;
+  familyId: string;
   title: string;
   recurrence: Recurrence;
   points: number;
@@ -31,13 +33,14 @@ export interface ChorePoolItem {
 
 export interface Reminder {
   id: string;
+  familyId: string;
   title: string;
-  assignedTo: string;
-  date: string;          // YYYY-MM-DD
-  time: string;          // HH:mm or '' for all-day
+  assignedTo: string;          // buddy uid
+  date: string;
+  time: string;
   allDay: boolean;
   repeat: RepeatMode;
-  notify: number;        // minutes before
+  notify: number;
   notes: string;
   createdBy: string;
   createdAt: number;
@@ -45,7 +48,8 @@ export interface Reminder {
 
 export interface Reward {
   id: string;
-  kidId: string;
+  familyId: string;
+  kidId: string;               // buddy uid
   title: string;
   description: string;
   cost: number;
@@ -58,8 +62,9 @@ export interface Reward {
 
 export interface RewardClaim {
   id: string;
+  familyId: string;
   rewardId: string;
-  kidId: string;
+  kidId: string;               // buddy uid
   rewardTitle: string;
   cost: number;
   status: ClaimStatus;
@@ -80,15 +85,18 @@ export interface Invite {
   createdAt: number;
   status: InviteStatus;
   acceptedAt?: number;
+  acceptedByUid?: string;
 }
 
 export interface User {
   id: string;
-  uid: string;            // Firebase Auth UID
+  uid: string;
   familyId: string;
   role: Role;
   displayName: string;
   email?: string;
   avatar?: string;
+  accent?: string;
+  age?: number;
   createdAt: number;
 }

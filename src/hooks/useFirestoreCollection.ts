@@ -3,11 +3,13 @@ import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firest
 
 /**
  * Generic real-time Firestore collection hook.
- * Optionally accepts a query builder to scope/filter the collection.
+ * Pass deps so the subscription re-runs when scoping values (e.g. familyId) change.
+ * Returning a falsy value from queryBuilder means "skip" — sets items=[] and stays loading=false.
  */
 export function useFirestoreCollection<T>(
   collectionName: string,
-  queryBuilder?: (q: FirebaseFirestoreTypes.CollectionReference<FirebaseFirestoreTypes.DocumentData>) => FirebaseFirestoreTypes.Query
+  queryBuilder?: (q: FirebaseFirestoreTypes.CollectionReference<FirebaseFirestoreTypes.DocumentData>) => FirebaseFirestoreTypes.Query | null,
+  deps: any[] = []
 ): { items: T[]; loading: boolean } {
   const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
@@ -15,6 +17,12 @@ export function useFirestoreCollection<T>(
   useEffect(() => {
     const ref = firestore().collection(collectionName);
     const q = queryBuilder ? queryBuilder(ref) : ref;
+    if (!q) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     const unsub = q.onSnapshot(
       snap => {
         setItems(snap.docs.map(d => ({ id: d.id, ...d.data() } as T)));
@@ -26,9 +34,8 @@ export function useFirestoreCollection<T>(
       }
     );
     return unsub;
-  // queryBuilder intentionally not in deps — pass a stable ref if you want to refetch
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [collectionName]);
+  }, [collectionName, ...deps]);
 
   return { items, loading };
 }

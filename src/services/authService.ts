@@ -12,7 +12,7 @@ export const authService = {
     return auth().signInWithCredential(credential);
   },
   signOut: async () => {
-    try { await GoogleSignin.signOut(); } catch (e) { /* ignore */ }
+    try { await GoogleSignin.signOut(); } catch { /* ignore */ }
     await auth().signOut();
   },
 };
