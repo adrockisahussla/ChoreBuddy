@@ -10,7 +10,7 @@ import { isOverdue, chorePoints } from '../../utils/buddy';
 import { inviteService } from '../../services/inviteService';
 import {
   Header, Screen, Card, Avatar, Badge, Text, Button,
-  AddBuddyForm, useConfirm,
+  AddBuddyForm, useConfirm, SCREEN_BOTTOM_PAD,
 } from '../../components';
 
 export default function BuddiesScreen({ navigation }: any) {
@@ -40,7 +40,7 @@ export default function BuddiesScreen({ navigation }: any) {
         badge={totalPending}
         onMenuPress={() => navigation.getParent?.()?.openDrawer?.()}
       />
-      <View style={{ padding: theme.spacing.lg }}>
+      <View style={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
         {pendingInvites.length > 0 && (
           <>
             <Text variant="sectionLabel">Pending Invites ({pendingInvites.length})</Text>

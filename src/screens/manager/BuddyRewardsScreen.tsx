@@ -5,7 +5,7 @@ import { useBuddies } from '../../hooks/useBuddies';
 import { theme } from '../../theme';
 import { rewardService, claimService } from '../../services/rewardService';
 import { buddyLabel } from '../../utils/buddy';
-import { Header, Screen, Card, Text, useConfirm } from '../../components';
+import { Header, Screen, Card, Text, useConfirm, SCREEN_BOTTOM_PAD } from '../../components';
 
 export default function BuddyRewardsScreen({ route, navigation }: any) {
   const buddyUid: string = route.params?.kidId || '';
@@ -22,7 +22,7 @@ export default function BuddyRewardsScreen({ route, navigation }: any) {
   return (
     <Screen contentStyle={{ padding: 0 }}>
       <Header title={`${buddyLabel(buddyUid, buddies)} · Rewards`} onBackPress={() => navigation.goBack()} />
-      <ScrollView contentContainerStyle={{ padding: theme.spacing.lg }}>
+      <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
         {requested.length > 0 && (
           <>
             <Text variant="sectionLabel" style={{ marginTop: 12 }}>Suggestions ({requested.length})</Text>

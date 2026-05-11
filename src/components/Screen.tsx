@@ -13,11 +13,12 @@ interface Props {
 }
 
 /**
- * Screen wrapper: SafeAreaView (from safe-area-context — Android-aware)
- * with the app background, optional Scroll/KeyboardAware content.
+ * Screen wrapper: SafeAreaView (Android-aware via safe-area-context)
+ * with the app background + bottom inset for the system nav bar.
  *
- * Top edge is implicit because Header sits above content; bottom edge
- * adds padding for the Android system nav (the three-button bar).
+ * For screens that render their own internal ScrollView (after a fixed
+ * Header), pass contentStyle={padding: 0} and use the SCREEN_BOTTOM_PAD
+ * constant on that ScrollView's contentContainerStyle.
  */
 export default function Screen({ children, scroll, keyboardAware, style, contentStyle }: Props) {
   const inner = (
@@ -42,6 +43,10 @@ export default function Screen({ children, scroll, keyboardAware, style, content
     </SafeAreaView>
   );
 }
+
+/** Default bottom padding for inner ScrollViews so content clears
+ *  the Android nav bar in addition to the SafeAreaView inset. */
+export const SCREEN_BOTTOM_PAD = 96;
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.colors.bg },

@@ -10,7 +10,7 @@ import { useBuddies } from '../../hooks/useBuddies';
 import { useFamilyId } from '../../hooks/useFamilyId';
 import { chorePoolService } from '../../services/chorePoolService';
 import { choreService, getEndOfWeek, getWeekOf } from '../../services/choreService';
-import { Header, Screen, Card, Avatar, Pill, Button, Text, useConfirm } from '../../components';
+import { Header, Screen, Card, Avatar, Pill, Button, Text, useConfirm, SCREEN_BOTTOM_PAD } from '../../components';
 
 export default function ChorePoolScreen({ navigation }: any) {
   const { chorePool } = useChorePool();
@@ -45,7 +45,7 @@ export default function ChorePoolScreen({ navigation }: any) {
   return (
     <Screen contentStyle={{ padding: 0 }}>
       <Header title="Chore Pool" onMenuPress={() => navigation.openDrawer?.()} />
-      <ScrollView contentContainerStyle={{ padding: theme.spacing.lg }}>
+      <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
         <Card padding={14} radius={theme.radius.lg} style={{ marginBottom: 12 }}>
           <Text style={{ color: theme.colors.text, fontSize: 14, lineHeight: 22 }}>
             The <Text style={{ color: theme.colors.accent, fontWeight: '700' }}>Chore Pool</Text> is where you store common chores you want to draw from. Add chores to the pool, and assign them to your Buddies from here as well.

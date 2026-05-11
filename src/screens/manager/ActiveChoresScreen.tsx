@@ -6,7 +6,7 @@ import { theme } from '../../theme';
 import { chorePoints, isOverdue, POINTS_PER } from '../../utils/buddy';
 import { choreService } from '../../services/choreService';
 import { Chore, Recurrence } from '../../types';
-import { Header, Screen, Card, Avatar, Pill, Button, Text } from '../../components';
+import { Header, Screen, Card, Avatar, Pill, Button, Text, SCREEN_BOTTOM_PAD } from '../../components';
 
 export default function ActiveChoresScreen({ navigation }: any) {
   const { chores } = useChores();
@@ -44,7 +44,7 @@ export default function ActiveChoresScreen({ navigation }: any) {
   return (
     <Screen contentStyle={{ padding: 0 }}>
       <Header title="Active Chores" onBackPress={() => navigation.goBack()} />
-      <ScrollView contentContainerStyle={{ padding: theme.spacing.lg }}>
+      <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
         {totalOpen === 0 && (
           <Text variant="empty" style={{ padding: 40 }}>No active chores. 🎉</Text>
         )}

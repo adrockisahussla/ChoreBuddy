@@ -6,7 +6,7 @@ export { default as Button } from './Button';
 export { default as Card } from './Card';
 export { default as Header } from './Header';
 export { default as Pill } from './Pill';
-export { default as Screen } from './Screen';
+export { default as Screen, SCREEN_BOTTOM_PAD } from './Screen';
 export { default as StatCard } from './StatCard';
 export { default as Text } from './Text';
 export { default as AddBuddyForm } from './AddBuddyForm';

@@ -6,7 +6,7 @@ import { useRewards, useRewardClaims } from '../../hooks/useRewards';
 import { useBuddies } from '../../hooks/useBuddies';
 import { theme } from '../../theme';
 import { chorePoints, isOverdue, buddyLabel } from '../../utils/buddy';
-import { Header, Screen, Card, Avatar, Text, StatCard } from '../../components';
+import { Header, Screen, Card, Avatar, Text, StatCard, SCREEN_BOTTOM_PAD } from '../../components';
 
 export default function BuddyProfileScreen({ route, navigation }: any) {
   const buddyUid: string = route.params?.kidId || '';
@@ -41,7 +41,7 @@ export default function BuddyProfileScreen({ route, navigation }: any) {
   return (
     <Screen contentStyle={{ padding: 0 }}>
       <Header title={`${name} · Profile`} onBackPress={() => navigation.goBack()} />
-      <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: 24 }}>
+      <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
         <Card padding={20} radius={theme.radius.xl} style={s.heroCard}>
           <Avatar emoji={buddy?.avatar || '👤'} accent={accent} size="lg" />
           <Text variant="h1" style={{ marginTop: 14 }} numberOfLines={1}>{name}</Text>

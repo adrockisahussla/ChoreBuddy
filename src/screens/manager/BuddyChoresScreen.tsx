@@ -5,7 +5,7 @@ import { useBuddies } from '../../hooks/useBuddies';
 import { theme } from '../../theme';
 import { chorePoints, isOverdue, buddyLabel } from '../../utils/buddy';
 import { choreService } from '../../services/choreService';
-import { Header, Screen, Card, Text } from '../../components';
+import { Header, Screen, Card, Text, SCREEN_BOTTOM_PAD } from '../../components';
 
 export default function BuddyChoresScreen({ route, navigation }: any) {
   const buddyUid: string = route.params?.kidId || '';
@@ -36,7 +36,7 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
   return (
     <Screen contentStyle={{ padding: 0 }}>
       <Header title={`${buddyLabel(buddyUid, buddies)} · Chores`} onBackPress={() => navigation.goBack()} />
-      <ScrollView contentContainerStyle={{ padding: theme.spacing.lg }}>
+      <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
         {my.length === 0 ? (
           <Text variant="empty">No chores assigned.</Text>
         ) : my.map(c => (

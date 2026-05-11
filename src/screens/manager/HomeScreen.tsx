@@ -11,7 +11,7 @@ import { currentWeek } from '../../utils/week';
 import { inviteService } from '../../services/inviteService';
 import {
   Header, Screen, Card, Avatar, Text, Button, StatCard,
-  AddBuddyForm, useConfirm,
+  AddBuddyForm, useConfirm, SCREEN_BOTTOM_PAD,
 } from '../../components';
 
 export default function HomeScreen({ navigation }: any) {
@@ -73,7 +73,7 @@ export default function HomeScreen({ navigation }: any) {
         badge={totalPending}
         onMenuPress={() => navigation.getParent?.()?.openDrawer?.()}
       />
-      <ScrollView contentContainerStyle={{ padding: theme.spacing.lg }}>
+      <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
         <Text variant="sectionLabel" style={{ marginTop: 0 }}>Buddies</Text>
         {buddies.length > 0 ? (
           <View style={s.buddiesGrid}>

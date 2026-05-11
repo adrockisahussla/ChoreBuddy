@@ -5,7 +5,7 @@ import { useBuddies } from '../../hooks/useBuddies';
 import { theme } from '../../theme';
 import { reminderService } from '../../services/reminderService';
 import { buddyLabel } from '../../utils/buddy';
-import { Header, Screen, Card, Avatar, Text, useConfirm } from '../../components';
+import { Header, Screen, Card, Avatar, Text, useConfirm, SCREEN_BOTTOM_PAD } from '../../components';
 
 export default function RemindersScreen({ route, navigation }: any) {
   const { reminders } = useReminders();
@@ -30,7 +30,7 @@ export default function RemindersScreen({ route, navigation }: any) {
         onMenuPress={isSubScreen ? undefined : () => navigation?.openDrawer?.()}
         onBackPress={isSubScreen ? () => navigation.goBack() : undefined}
       />
-      <ScrollView contentContainerStyle={{ padding: theme.spacing.lg }}>
+      <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
         {list.length === 0 ? (
           <Text variant="empty" style={{ padding: 40, lineHeight: 22 }}>
             No reminders yet.{'\n'}Reminder creation form coming next.
