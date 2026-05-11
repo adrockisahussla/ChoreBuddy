@@ -59,4 +59,13 @@ export const userService = {
 
   update: (id: string, patch: Partial<User>) =>
     usersCol().doc(id).update(patch),
+
+  /**
+   * Remove a buddy's user doc (i.e. detach them from the family).
+   * Their Firebase Auth account is untouched — they could still sign in,
+   * they just won't be associated with this family. Existing chores and
+   * rewards assigned to them become orphaned (assignedTo points to an
+   * unknown uid); cleaning those up is left to a separate sweep.
+   */
+  remove: (id: string) => usersCol().doc(id).delete(),
 };

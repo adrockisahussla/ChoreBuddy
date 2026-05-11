@@ -9,6 +9,7 @@ export { default as Pill } from './Pill';
 export { default as Screen, SCREEN_BOTTOM_PAD } from './Screen';
 export { default as StatCard } from './StatCard';
 export { default as WeekNavigator } from './WeekNavigator';
+export { default as HoldToConfirm } from './HoldToConfirm';
 export { default as Text } from './Text';
 export { default as AddBuddyForm } from './AddBuddyForm';
 export { default as SubmissionToasts } from './SubmissionToasts';

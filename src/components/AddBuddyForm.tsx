@@ -8,6 +8,7 @@ import { Role, User } from '../types';
 import Pill from './Pill';
 import Button from './Button';
 import Text from './Text';
+import HoldToConfirm from './HoldToConfirm';
 
 const AVATARS = ['💜', '🧡', '💚', '💙', '❤️', '💛', '🦊', '🐯', '🐼', '🦄', '🐶', '🐱'];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -35,6 +36,7 @@ export default function AddBuddyForm({ visible, onClose, buddy }: Props) {
   const [avatar, setAvatar] = useState(AVATARS[0]);
   const [showAvatars, setShowAvatars] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [removeOpen, setRemoveOpen] = useState(false);
   const familyId = useFamilyId();
 
   // Hydrate when entering edit mode
@@ -111,6 +113,20 @@ export default function AddBuddyForm({ visible, onClose, buddy }: Props) {
     : (isEdit ? 'Save Changes' : 'Send Invite');
   const headerTitle = isEdit ? `Edit ${buddy?.displayName || 'Buddy'}` : 'Add a Buddy';
 
+  const removeBuddy = async () => {
+    if (!buddy) return;
+    try {
+      await userService.remove(buddy.id);
+      if (Platform.OS === 'android') {
+        ToastAndroid.show(`${buddy.displayName || 'Buddy'} removed from family`, ToastAndroid.LONG);
+      }
+      setRemoveOpen(false);
+      close();
+    } catch (e: any) {
+      Alert.alert('Failed to remove', e?.message || String(e));
+    }
+  };
+
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={close}>
       <SafeAreaView style={s.root}>
@@ -164,7 +180,7 @@ export default function AddBuddyForm({ visible, onClose, buddy }: Props) {
 
           <Text variant="sectionLabel" style={{ marginTop: 16 }}>Email</Text>
           <TextInput
-            style={[s.input, isEdit && s.inputDisabled]}
+            style={[s.input, isEdit && s.inputDisabled, isEdit && s.inputSmall]}
             value={email}
             onChangeText={isEdit ? undefined : setEmail}
             editable={!isEdit}
@@ -198,7 +214,69 @@ export default function AddBuddyForm({ visible, onClose, buddy }: Props) {
               full
             />
           </View>
+
+          {isEdit && (
+            <View style={{ marginTop: 32 }}>
+              <View style={s.divider} />
+              <Text variant="sectionLabel" style={{ marginTop: 16, color: theme.colors.danger }}>
+                Danger zone
+              </Text>
+              <Button
+                label="🗑 Remove buddy from family"
+                variant="danger"
+                onPress={() => setRemoveOpen(true)}
+                full
+              />
+            </View>
+          )}
         </ScrollView>
+
+        {/* Remove confirmation — fullscreen modal with hold-to-confirm */}
+        <Modal
+          visible={removeOpen}
+          animationType="slide"
+          onRequestClose={() => setRemoveOpen(false)}
+        >
+          <SafeAreaView style={s.root}>
+            <View style={s.removeHeader}>
+              <TouchableOpacity onPress={() => setRemoveOpen(false)} style={s.backBtn} hitSlop={10}>
+                <RNText style={s.backText}>←</RNText>
+              </TouchableOpacity>
+              <RNText style={s.title} numberOfLines={1}>Remove {buddy?.displayName}?</RNText>
+              <View style={s.backBtn} />
+            </View>
+            <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: 40 }}>
+              <Text variant="h2" style={{ marginTop: 16 }}>⚠️ This is permanent</Text>
+              <Text variant="body" style={{ marginTop: 12, lineHeight: 22 }}>
+                <Text style={{ fontWeight: '700' }}>{buddy?.displayName}</Text> will be removed
+                from your family. Their existing chores and rewards will be unassigned.
+                This cannot be undone from the app — you'd have to re-invite them.
+              </Text>
+              <Text variant="meta" style={{ marginTop: 16 }}>
+                Their sign-in account is untouched, but they will no longer see your family's
+                chores or rewards.
+              </Text>
+
+              <View style={{ marginTop: 40 }}>
+                <HoldToConfirm
+                  label="🗑 Press and HOLD to remove"
+                  hint="Hold the button below for 5 seconds to confirm"
+                  holdMs={5000}
+                  onConfirm={removeBuddy}
+                />
+              </View>
+
+              <View style={{ marginTop: 16 }}>
+                <Button
+                  label="Cancel"
+                  variant="secondary"
+                  onPress={() => setRemoveOpen(false)}
+                  full
+                />
+              </View>
+            </ScrollView>
+          </SafeAreaView>
+        </Modal>
       </SafeAreaView>
     </Modal>
   );
@@ -251,5 +329,18 @@ const s = StyleSheet.create({
   inputDisabled: {
     backgroundColor: theme.colors.bg,
     color: theme.colors.muted,
+  },
+  inputSmall: {
+    fontSize: 13,
+    padding: 12,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: theme.colors.cardBorder,
+  },
+  removeHeader: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 12, paddingVertical: 18,
+    backgroundColor: theme.colors.danger,
   },
 });
