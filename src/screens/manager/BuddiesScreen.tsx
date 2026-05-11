@@ -117,7 +117,7 @@ export default function BuddiesScreen({ navigation }: any) {
 
         <Button
           label={addOpen ? '— Close' : '+ Add a Buddy'}
-          variant="dashed"
+          variant="primary"
           onPress={() => setAddOpen(o => !o)}
           style={{ marginTop: 10 }}
         />

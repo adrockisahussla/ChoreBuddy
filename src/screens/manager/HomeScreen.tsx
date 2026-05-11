@@ -102,12 +102,13 @@ export default function HomeScreen({ navigation }: any) {
         )}
         <Button
           label={addOpen ? '— Close' : '+ Add a Buddy'}
-          variant="dashed"
+          variant="primary"
           onPress={() => setAddOpen(o => !o)}
-          style={{ marginTop: 6 }}
+          style={{ marginTop: 8 }}
         />
         {addOpen && <AddBuddyForm onDone={() => setAddOpen(false)} />}
 
+        <Text variant="sectionLabel" style={{ marginTop: 24 }}>Summary</Text>
         <StatCard
           num={weekChores.length}
           numColor={overdueCount > 0 ? theme.colors.danger : theme.colors.blue}
