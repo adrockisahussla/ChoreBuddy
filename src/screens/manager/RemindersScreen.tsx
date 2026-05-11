@@ -1,15 +1,17 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { useReminders } from '../../hooks/useReminders';
 import { useBuddies } from '../../hooks/useBuddies';
 import { theme } from '../../theme';
 import { reminderService } from '../../services/reminderService';
 import { buddyLabel } from '../../utils/buddy';
 import Header from '../../components/Header';
+import { useConfirm } from '../../components/ConfirmModal';
 
 export default function RemindersScreen({ route, navigation }: any) {
   const { reminders } = useReminders();
   const { buddies } = useBuddies();
+  const confirm = useConfirm();
   const filterKid: string | undefined = route?.params?.kidId;
   const list = (filterKid ? reminders.filter(r => r.assignedTo === filterKid) : reminders)
     .slice()
@@ -39,10 +41,15 @@ export default function RemindersScreen({ route, navigation }: any) {
             <TouchableOpacity
               key={r.id}
               style={s.card}
-              onLongPress={() => Alert.alert('Delete reminder?', r.title, [
-                { text: 'Cancel' },
-                { text: 'Delete', style: 'destructive', onPress: () => reminderService.remove(r.id) },
-              ])}
+              onLongPress={async () => {
+                const ok = await confirm({
+                  title: 'Delete reminder?',
+                  message: r.title,
+                  confirmLabel: 'Delete',
+                  confirmDestructive: true,
+                });
+                if (ok) reminderService.remove(r.id);
+              }}
             >
               <View style={[s.avatar, { backgroundColor: (b?.accent || theme.colors.purple) + '40' }]}>
                 <Text style={{ fontSize: 22 }}>{b?.avatar || '🔔'}</Text>

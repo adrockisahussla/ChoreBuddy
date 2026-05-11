@@ -6,6 +6,8 @@ import { resetWeeklyChores } from './src/services/choreService';
 import { configureGoogleSignin } from './src/config/google';
 import AuthGateway from './src/AuthGateway';
 import DrawerNavigator from './src/navigation/DrawerNavigator';
+import { ConfirmProvider } from './src/components/ConfirmModal';
+import SubmissionToasts from './src/components/SubmissionToasts';
 
 configureGoogleSignin();
 
@@ -17,9 +19,12 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthGateway>
-        <NavigationContainer>
-          <DrawerNavigator />
-        </NavigationContainer>
+        <SubmissionToasts />
+        <ConfirmProvider>
+          <NavigationContainer>
+            <DrawerNavigator />
+          </NavigationContainer>
+        </ConfirmProvider>
       </AuthGateway>
     </GestureHandlerRootView>
   );

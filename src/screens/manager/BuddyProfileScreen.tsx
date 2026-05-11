@@ -24,11 +24,13 @@ export default function BuddyProfileScreen({ route, navigation }: any) {
   const myRewards = rewardItems.filter(r => r.kidId === buddyUid);
   const myClaims = rewardClaims.filter(c => c.kidId === buddyUid);
   const pendingClaims = myClaims.filter(c => c.status === 'pending').length;
+  const pendingRequests = myRewards.filter(r => r.status === 'requested').length;
+  const rewardsAttention = pendingRequests + pendingClaims;
   const myReminders = reminders.filter(r => r.assignedTo === buddyUid).length;
 
   const QUICK = [
     { label: 'Chores', icon: '✓', count: active, sub: overdue > 0 ? `${overdue} overdue` : 'active', onPress: () => navigation.navigate('BuddyChores', { kidId: buddyUid }) },
-    { label: 'Rewards', icon: '🎁', count: myRewards.length, sub: pendingClaims > 0 ? `${pendingClaims} claim` : 'set', onPress: () => navigation.navigate('BuddyRewards', { kidId: buddyUid }) },
+    { label: 'Rewards', icon: '🎁', count: myRewards.length, sub: rewardsAttention > 0 ? `${rewardsAttention} pending` : 'set', onPress: () => navigation.navigate('BuddyRewards', { kidId: buddyUid }) },
     { label: 'Reminders', icon: '🔔', count: myReminders, sub: 'upcoming', onPress: () => navigation.navigate('BuddyReminders', { kidId: buddyUid }) },
     { label: 'Map', icon: '📍', count: null as any, sub: 'live', onPress: () => navigation.navigate('BuddyMap', { kidId: buddyUid }) },
   ];

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Alert, Share } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Share } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useChores } from '../../hooks/useChores';
 import { useReminders } from '../../hooks/useReminders';
 import { useRewards, useRewardClaims } from '../../hooks/useRewards';
@@ -10,6 +11,7 @@ import { isOverdue, chorePoints } from '../../utils/buddy';
 import { inviteService } from '../../services/inviteService';
 import AddBuddyForm from '../../components/AddBuddyForm';
 import Header from '../../components/Header';
+import { useConfirm } from '../../components/ConfirmModal';
 
 export default function BuddiesScreen({ navigation }: any) {
   const { chores } = useChores();
@@ -19,6 +21,7 @@ export default function BuddiesScreen({ navigation }: any) {
   const { invites } = useInvites();
   const { buddies } = useBuddies();
   const [addOpen, setAddOpen] = useState(false);
+  const confirm = useConfirm();
 
   const pendingInvites = invites.filter(i => i.status === 'pending' && i.expiresAt > Date.now());
   const pendingChores = chores.filter(c => c.status === 'pending').length;
@@ -37,7 +40,12 @@ export default function BuddiesScreen({ navigation }: any) {
         badge={totalPending}
         onMenuPress={() => navigation.getParent?.()?.openDrawer?.()}
       />
-      <ScrollView contentContainerStyle={{ padding: theme.spacing.lg }}>
+      <KeyboardAwareScrollView
+        contentContainerStyle={{ padding: theme.spacing.lg }}
+        keyboardShouldPersistTaps="handled"
+        enableOnAndroid
+        extraScrollHeight={20}
+      >
         {pendingInvites.length > 0 && (
           <>
             <Text style={s.sectionLabel}>Pending Invites ({pendingInvites.length})</Text>
@@ -60,10 +68,15 @@ export default function BuddiesScreen({ navigation }: any) {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={s.iconBtn}
-                  onPress={() => Alert.alert('Revoke', 'Revoke this invite?', [
-                    { text: 'Cancel' },
-                    { text: 'Revoke', style: 'destructive', onPress: () => inviteService.revoke(inv.id) },
-                  ])}
+                  onPress={async () => {
+                    const ok = await confirm({
+                      title: 'Revoke',
+                      message: 'Revoke this invite?',
+                      confirmLabel: 'Revoke',
+                      confirmDestructive: true,
+                    });
+                    if (ok) inviteService.revoke(inv.id);
+                  }}
                 >
                   <Text style={s.iconBtnText}>🗑</Text>
                 </TouchableOpacity>
@@ -81,7 +94,10 @@ export default function BuddiesScreen({ navigation }: any) {
           const active = my.filter(c => c.status === 'todo' || c.status === 'pending' || isOverdue(c)).length;
           const points = my.filter(c => c.status === 'approved').reduce((sum, c) => sum + chorePoints(c), 0);
           const reminderCount = reminders.filter(r => r.assignedTo === b.uid).length;
+          const pendingMyChores = my.filter(c => c.status === 'pending').length;
+          const pendingMyRewards = rewardItems.filter(r => r.kidId === b.uid && r.status === 'requested').length;
           const pendingClaims = rewardClaims.filter(c => c.kidId === b.uid && c.status === 'pending').length;
+          const attention = pendingMyChores + pendingMyRewards + pendingClaims;
           return (
             <TouchableOpacity
               key={b.uid}
@@ -94,8 +110,8 @@ export default function BuddiesScreen({ navigation }: any) {
               <View style={{ flex: 1, minWidth: 0 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Text style={s.name} numberOfLines={1}>{b.displayName}</Text>
-                  {pendingClaims > 0 && (
-                    <View style={s.giftPill}><Text style={s.giftPillText}>🎁 {pendingClaims}</Text></View>
+                  {attention > 0 && (
+                    <View style={s.attentionPill}><Text style={s.attentionPillText}>! {attention}</Text></View>
                   )}
                 </View>
                 {b.email && <Text style={s.metaSmall} numberOfLines={1}>{b.email}</Text>}
@@ -114,7 +130,7 @@ export default function BuddiesScreen({ navigation }: any) {
           <Text style={s.addBtnText}>{addOpen ? '— Close' : '+ Add a Buddy'}</Text>
         </TouchableOpacity>
         {addOpen && <AddBuddyForm onDone={() => setAddOpen(false)} />}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }
@@ -127,8 +143,8 @@ const s = StyleSheet.create({
   avatar: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center' },
   name: { color: theme.colors.text, fontWeight: '900', fontSize: 15 },
   metaSmall: { color: theme.colors.muted, fontSize: 11, fontWeight: '700', marginTop: 2 },
-  giftPill: { backgroundColor: theme.colors.accent + '33', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 },
-  giftPillText: { color: theme.colors.accent, fontSize: 10, fontWeight: '900' },
+  attentionPill: { backgroundColor: theme.colors.danger, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 },
+  attentionPillText: { color: '#fff', fontSize: 10, fontWeight: '900' },
   statsCol: { alignItems: 'flex-end', gap: 4 },
   activeBadge: { backgroundColor: theme.colors.danger, borderRadius: 10, minWidth: 22, height: 20, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 5 },
   activeBadgeText: { color: '#fff', fontSize: 11, fontWeight: '900' },

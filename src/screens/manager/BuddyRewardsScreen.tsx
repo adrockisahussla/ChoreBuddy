@@ -1,17 +1,19 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { useRewards, useRewardClaims } from '../../hooks/useRewards';
 import { useBuddies } from '../../hooks/useBuddies';
 import { theme } from '../../theme';
 import { rewardService, claimService } from '../../services/rewardService';
 import { buddyLabel } from '../../utils/buddy';
 import Header from '../../components/Header';
+import { useConfirm } from '../../components/ConfirmModal';
 
 export default function BuddyRewardsScreen({ route, navigation }: any) {
   const buddyUid: string = route.params?.kidId || '';
   const { buddies } = useBuddies();
   const { rewardItems } = useRewards();
   const { rewardClaims } = useRewardClaims();
+  const confirm = useConfirm();
   const myRewards = rewardItems.filter(r => r.kidId === buddyUid);
   const myClaims = rewardClaims.filter(c => c.kidId === buddyUid);
   const pending = myClaims.filter(c => c.status === 'pending');
@@ -22,9 +24,39 @@ export default function BuddyRewardsScreen({ route, navigation }: any) {
     <SafeAreaView style={s.root}>
       <Header title={`${buddyLabel(buddyUid, buddies)} · Rewards`} onBackPress={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg }}>
+        {requested.length > 0 && (
+          <>
+            <Text style={s.section}>Suggestions ({requested.length})</Text>
+            {requested.map(r => (
+              <View key={r.id} style={s.card}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.title}>{r.title}</Text>
+                  <Text style={s.meta}>Suggested: {r.suggestedCost} pts</Text>
+                </View>
+                <TouchableOpacity
+                  style={s.approve}
+                  onPress={async () => {
+                    const ok = await confirm({
+                      title: 'Approve suggestion',
+                      message: `Approve "${r.title}" at ${r.suggestedCost} pts?`,
+                      confirmLabel: 'Approve suggestion',
+                    });
+                    if (ok) rewardService.approve(r.id, r.suggestedCost);
+                  }}
+                >
+                  <Text style={s.approveText}>✓</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.reject} onPress={() => rewardService.deny(r.id)}>
+                  <Text style={s.rejectText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </>
+        )}
+
         {pending.length > 0 && (
           <>
-            <Text style={s.section}>Pending Claims ({pending.length})</Text>
+            <Text style={s.section}>Claims ({pending.length})</Text>
             {pending.map(c => (
               <View key={c.id} style={[s.card, { borderColor: theme.colors.accent + '60' }]}>
                 <View style={{ flex: 1 }}>
@@ -35,32 +67,6 @@ export default function BuddyRewardsScreen({ route, navigation }: any) {
                   <Text style={s.approveText}>✓</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={s.reject} onPress={() => claimService.deny(c.id)}>
-                  <Text style={s.rejectText}>✕</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-          </>
-        )}
-
-        {requested.length > 0 && (
-          <>
-            <Text style={s.section}>Reward Requests</Text>
-            {requested.map(r => (
-              <View key={r.id} style={s.card}>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.title}>{r.title}</Text>
-                  <Text style={s.meta}>Suggested: {r.suggestedCost} pts</Text>
-                </View>
-                <TouchableOpacity
-                  style={s.approve}
-                  onPress={() => Alert.alert('Approve', `Approve "${r.title}" at ${r.suggestedCost} pts?`, [
-                    { text: 'Cancel' },
-                    { text: 'Approve', onPress: () => rewardService.approve(r.id, r.suggestedCost) },
-                  ])}
-                >
-                  <Text style={s.approveText}>✓</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={s.reject} onPress={() => rewardService.deny(r.id)}>
                   <Text style={s.rejectText}>✕</Text>
                 </TouchableOpacity>
               </View>

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet, Alert, Share } from 'react-native';
 import { theme } from '../theme';
 import { inviteService } from '../services/inviteService';
 import { useFamilyId } from '../hooks/useFamilyId';
+import { useInvites } from '../hooks/useInvites';
 import { Role } from '../types';
 
 const AVATARS = ['💜', '🧡', '💚', '💙', '❤️', '💛', '🦊', '🐯', '🐼', '🦄', '🐶', '🐱'];
@@ -18,9 +19,15 @@ export default function AddBuddyForm({ onDone }: { onDone: () => void }) {
   const [loading, setLoading] = useState(false);
   const [created, setCreated] = useState<{ token: string; email: string; emailSent: boolean; emailError: string | null } | null>(null);
   const familyId = useFamilyId();
+  const { invites } = useInvites();
 
   const emailValid = EMAIL_RE.test(email.trim());
   const canSubmit = !!name.trim() && emailValid && !!familyId;
+
+  const accepted = !!created && invites.some(inv => inv.token === created.token && inv.status === 'accepted');
+  useEffect(() => {
+    if (accepted) onDone();
+  }, [accepted, onDone]);
 
   const submit = async () => {
     if (!canSubmit || !familyId) return;
@@ -42,39 +49,38 @@ export default function AddBuddyForm({ onDone }: { onDone: () => void }) {
   if (created) {
     const link = `${INVITE_BASE_URL}?invite=${created.token}&email=${encodeURIComponent(created.email)}`;
     return (
-      <View style={s.formCard}>
-        <Text style={[s.formLabel, { color: theme.colors.success }]}>
-          {created.emailSent ? '✓ Invite Sent' : '✓ Invite Created'}
-        </Text>
-        <View style={{ alignItems: 'center', padding: 16 }}>
-          <Text style={{ fontSize: 48, marginBottom: 6 }}>{avatar}</Text>
-          <Text style={{ color: theme.colors.text, fontSize: 18, fontWeight: '900' }}>{name.trim()}</Text>
-          <Text style={{ color: theme.colors.accent, fontSize: 13, fontWeight: '700', marginTop: 4 }}>{created.email}</Text>
-          <Text style={{ color: theme.colors.muted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginTop: 6 }}>
-            {role === 'manager' ? 'Co-Manager' : 'Buddy'} · expires in 24h
-          </Text>
+      <View style={[s.formCard, { padding: 10 }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Text style={{ fontSize: 24 }}>{avatar}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: theme.colors.text, fontSize: 14, fontWeight: '900' }} numberOfLines={1}>
+              {name.trim()} <Text style={{ color: theme.colors.muted, fontWeight: '700', fontSize: 11 }}>· {role === 'manager' ? 'Co-Manager' : 'Buddy'}</Text>
+            </Text>
+            <Text style={{ color: created.emailSent ? theme.colors.success : theme.colors.warning, fontSize: 11, fontWeight: '700' }} numberOfLines={1}>
+              {created.emailSent
+                ? `✓ Sent to ${created.email}`
+                : `⚠ Email not sent${created.emailError ? `: ${created.emailError}` : ''}`}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={onDone} hitSlop={8}>
+            <Text style={{ color: theme.colors.muted, fontWeight: '900', fontSize: 12, paddingHorizontal: 6 }}>Done</Text>
+          </TouchableOpacity>
         </View>
-        {created.emailSent ? (
-          <Text style={s.statusOk}>📬 Sign-in link emailed to {created.email}</Text>
-        ) : (
-          <Text style={s.statusWarn}>
-            ⚠ Email not sent{created.emailError ? `: ${created.emailError}` : ''}. Share this link manually:
-          </Text>
+        {!created.emailSent && (
+          <>
+            <View style={[s.linkBox, { marginTop: 8, marginBottom: 8 }]}>
+              <Text style={s.linkText} selectable>{link}</Text>
+            </View>
+            <TouchableOpacity
+              style={[s.primaryBtn, { padding: 10, marginTop: 0 }]}
+              onPress={() => Share.share({
+                message: `You've been invited to BuddyMinder! Sign in with ${created.email}: ${link}`,
+              }).catch(() => {})}
+            >
+              <Text style={s.primaryBtnText}>Share Link</Text>
+            </TouchableOpacity>
+          </>
         )}
-        <View style={s.linkBox}>
-          <Text style={s.linkText} selectable>{link}</Text>
-        </View>
-        <TouchableOpacity
-          style={s.primaryBtn}
-          onPress={() => Share.share({
-            message: `You've been invited to BuddyMinder! Sign in with ${created.email}: ${link}`,
-          }).catch(() => {})}
-        >
-          <Text style={s.primaryBtnText}>Share Link</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={onDone} style={{ marginTop: 6 }}>
-          <Text style={{ color: theme.colors.muted, fontWeight: '700', textAlign: 'center', padding: 8 }}>Done</Text>
-        </TouchableOpacity>
       </View>
     );
   }

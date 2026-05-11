@@ -9,6 +9,7 @@ import RemindersScreen from '../screens/manager/RemindersScreen';
 import { theme } from '../theme';
 import { authService } from '../services/authService';
 import { useCurrentUser } from '../hooks/useCurrentUser';
+import { useConfirm } from '../components/ConfirmModal';
 
 const Drawer = createDrawerNavigator();
 
@@ -23,11 +24,18 @@ function CustomDrawerContent(props: any) {
   const { fbUser, userDoc } = useCurrentUser();
   const name = userDoc?.displayName || fbUser?.displayName || 'Manager';
   const email = fbUser?.email || '';
+  const confirm = useConfirm();
 
-  const signOut = () => Alert.alert('Sign Out', 'Sign out of BuddyMinder?', [
-    { text: 'Cancel' },
-    { text: 'Sign Out', style: 'destructive', onPress: () => authService.signOut().catch(e => Alert.alert('Error', String(e))) },
-  ]);
+  const signOut = async () => {
+    const ok = await confirm({
+      title: 'Sign Out',
+      message: 'Sign out of BuddyMinder?',
+      confirmLabel: 'Sign Out',
+      confirmDestructive: true,
+    });
+    if (!ok) return;
+    authService.signOut().catch(e => Alert.alert('Error', String(e)));
+  };
 
   const goRoute = (route: string) => {
     // Reset the route's stack to its first screen so revisiting always lands on the root
