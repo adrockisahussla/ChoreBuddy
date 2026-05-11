@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Share } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { View, TouchableOpacity, StyleSheet, Share, Text as RNText } from 'react-native';
 import { useChores } from '../../hooks/useChores';
 import { useReminders } from '../../hooks/useReminders';
 import { useRewards, useRewardClaims } from '../../hooks/useRewards';
@@ -9,9 +8,10 @@ import { useBuddies } from '../../hooks/useBuddies';
 import { theme } from '../../theme';
 import { isOverdue, chorePoints } from '../../utils/buddy';
 import { inviteService } from '../../services/inviteService';
-import AddBuddyForm from '../../components/AddBuddyForm';
-import Header from '../../components/Header';
-import { useConfirm } from '../../components/ConfirmModal';
+import {
+  Header, Screen, Card, Avatar, Badge, Text, Button,
+  AddBuddyForm, useConfirm,
+} from '../../components';
 
 export default function BuddiesScreen({ navigation }: any) {
   const { chores } = useChores();
@@ -34,37 +34,32 @@ export default function BuddiesScreen({ navigation }: any) {
   };
 
   return (
-    <SafeAreaView style={s.root}>
+    <Screen contentStyle={{ padding: 0 }} keyboardAware>
       <Header
         title="All Buddies"
         badge={totalPending}
         onMenuPress={() => navigation.getParent?.()?.openDrawer?.()}
       />
-      <KeyboardAwareScrollView
-        contentContainerStyle={{ padding: theme.spacing.lg }}
-        keyboardShouldPersistTaps="handled"
-        enableOnAndroid
-        extraScrollHeight={20}
-      >
+      <View style={{ padding: theme.spacing.lg }}>
         {pendingInvites.length > 0 && (
           <>
-            <Text style={s.sectionLabel}>Pending Invites ({pendingInvites.length})</Text>
+            <Text variant="sectionLabel">Pending Invites ({pendingInvites.length})</Text>
             {pendingInvites.map(inv => (
-              <View key={inv.id} style={s.inviteRow}>
-                <View style={s.inviteAvatar}>
-                  <Text style={{ fontSize: 22 }}>{inv.avatar || '👤'}</Text>
-                </View>
+              <Card key={inv.id} row variant="invite" style={{ gap: 12 }}>
+                <Avatar emoji={inv.avatar || '👤'} accent={theme.colors.accent} size="sm" />
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <Text style={s.inviteName}>{inv.suggestedName}</Text>
                     <View style={s.invitePill}>
-                      <Text style={s.invitePillText}>{inv.role === 'manager' ? 'CO-MANAGER' : 'BUDDY'}</Text>
+                      <RNText style={s.invitePillText}>{inv.role === 'manager' ? 'CO-MANAGER' : 'BUDDY'}</RNText>
                     </View>
                   </View>
-                  <Text style={s.inviteMeta}>⏳ Pending · expires {new Date(inv.expiresAt).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}</Text>
+                  <Text style={s.inviteMeta}>
+                    ⏳ Pending · expires {new Date(inv.expiresAt).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
+                  </Text>
                 </View>
                 <TouchableOpacity style={s.iconBtn} onPress={() => shareInvite(inv.token)}>
-                  <Text style={s.iconBtnText}>🔗</Text>
+                  <RNText style={s.iconBtnText}>🔗</RNText>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={s.iconBtn}
@@ -78,16 +73,16 @@ export default function BuddiesScreen({ navigation }: any) {
                     if (ok) inviteService.revoke(inv.id);
                   }}
                 >
-                  <Text style={s.iconBtnText}>🗑</Text>
+                  <RNText style={s.iconBtnText}>🗑</RNText>
                 </TouchableOpacity>
-              </View>
+              </Card>
             ))}
           </>
         )}
 
-        <Text style={s.sectionLabel}>All Buddies</Text>
+        <Text variant="sectionLabel">All Buddies</Text>
         {buddies.length === 0 && (
-          <Text style={s.empty}>No buddies yet. Tap "+ Add a Buddy" to invite one.</Text>
+          <Text variant="empty">No buddies yet. Tap "+ Add a Buddy" to invite one.</Text>
         )}
         {buddies.map(b => {
           const my = chores.filter(c => c.assignedTo === b.uid);
@@ -99,68 +94,49 @@ export default function BuddiesScreen({ navigation }: any) {
           const pendingClaims = rewardClaims.filter(c => c.kidId === b.uid && c.status === 'pending').length;
           const attention = pendingMyChores + pendingMyRewards + pendingClaims;
           return (
-            <TouchableOpacity
+            <Card
               key={b.uid}
-              style={s.row}
+              row
               onPress={() => navigation.navigate('BuddyProfile', { kidId: b.uid })}
+              style={{ gap: 12 }}
             >
-              <View style={[s.avatar, { backgroundColor: b.accent || theme.colors.purple }]}>
-                <Text style={{ fontSize: 30 }}>{b.avatar || '👤'}</Text>
-              </View>
+              <Avatar emoji={b.avatar || '👤'} accent={b.accent} size="md" />
               <View style={{ flex: 1, minWidth: 0 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={s.name} numberOfLines={1}>{b.displayName}</Text>
-                  {attention > 0 && (
-                    <View style={s.attentionPill}><Text style={s.attentionPillText}>! {attention}</Text></View>
-                  )}
+                  <Text variant="h3" style={{ fontSize: 15 }} numberOfLines={1}>{b.displayName}</Text>
+                  {attention > 0 && <Badge label={`! ${attention}`} variant="attention" />}
                 </View>
-                {b.email && <Text style={s.metaSmall} numberOfLines={1}>{b.email}</Text>}
+                {b.email && <Text variant="tiny" style={{ marginTop: 2, fontSize: 11 }} numberOfLines={1}>{b.email}</Text>}
               </View>
               <View style={s.statsCol}>
-                {active > 0 && <View style={s.activeBadge}><Text style={s.activeBadgeText}>{active}</Text></View>}
-                {reminderCount > 0 && <View style={s.statPill}><Text style={s.statPillText}>🔔 {reminderCount}</Text></View>}
-                <View style={s.pointsPill}><Text style={s.pointsPillText}>★ {points}</Text></View>
+                {active > 0 && <Badge label={String(active)} variant="active" />}
+                {reminderCount > 0 && <Badge label={`🔔 ${reminderCount}`} variant="stat" />}
+                <Badge label={`★ ${points}`} variant="points" />
               </View>
               <Text style={s.arrow}>›</Text>
-            </TouchableOpacity>
+            </Card>
           );
         })}
 
-        <TouchableOpacity style={s.addBtn} onPress={() => setAddOpen(o => !o)}>
-          <Text style={s.addBtnText}>{addOpen ? '— Close' : '+ Add a Buddy'}</Text>
-        </TouchableOpacity>
+        <Button
+          label={addOpen ? '— Close' : '+ Add a Buddy'}
+          variant="dashed"
+          onPress={() => setAddOpen(o => !o)}
+          style={{ marginTop: 10 }}
+        />
         {addOpen && <AddBuddyForm onDone={() => setAddOpen(false)} />}
-      </KeyboardAwareScrollView>
-    </SafeAreaView>
+      </View>
+    </Screen>
   );
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: theme.colors.bg },
-  sectionLabel: { color: theme.colors.muted, fontSize: 11, fontWeight: '900', letterSpacing: 1.5, textTransform: 'uppercase', marginTop: 4, marginBottom: 10 },
-  empty: { color: theme.colors.muted, fontSize: 13, fontWeight: '700', textAlign: 'center', padding: 20, fontStyle: 'italic' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: theme.colors.card, borderWidth: 1, borderColor: theme.colors.cardBorder, borderRadius: theme.radius.xl, padding: 12, marginBottom: 10 },
-  avatar: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center' },
-  name: { color: theme.colors.text, fontWeight: '900', fontSize: 15 },
-  metaSmall: { color: theme.colors.muted, fontSize: 11, fontWeight: '700', marginTop: 2 },
-  attentionPill: { backgroundColor: theme.colors.danger, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1 },
-  attentionPillText: { color: '#fff', fontSize: 10, fontWeight: '900' },
-  statsCol: { alignItems: 'flex-end', gap: 4 },
-  activeBadge: { backgroundColor: theme.colors.danger, borderRadius: 10, minWidth: 22, height: 20, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 5 },
-  activeBadgeText: { color: '#fff', fontSize: 11, fontWeight: '900' },
-  statPill: { backgroundColor: theme.colors.bg, borderWidth: 1, borderColor: theme.colors.cardBorder, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
-  statPillText: { color: theme.colors.muted, fontSize: 10, fontWeight: '900' },
-  pointsPill: { backgroundColor: theme.colors.accent + '26', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
-  pointsPillText: { color: theme.colors.accent, fontSize: 10, fontWeight: '900' },
-  arrow: { color: theme.colors.muted, fontSize: 24, fontWeight: '900', marginLeft: 4 },
-  inviteRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#1e1c10', borderWidth: 1, borderColor: theme.colors.accent + '50', borderRadius: theme.radius.xl, padding: 12, marginBottom: 8 },
-  inviteAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: theme.colors.accent + '26', justifyContent: 'center', alignItems: 'center' },
   inviteName: { color: theme.colors.accent, fontWeight: '900', fontSize: 14 },
   invitePill: { backgroundColor: theme.colors.accent + '33', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2 },
   invitePillText: { color: theme.colors.accent, fontSize: 10, fontWeight: '900' },
   inviteMeta: { color: '#b8932f', fontSize: 11, fontWeight: '700', marginTop: 2 },
   iconBtn: { width: 32, height: 32, borderWidth: 1, borderColor: theme.colors.cardBorder, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   iconBtnText: { fontSize: 14, color: theme.colors.accent },
-  addBtn: { padding: 14, borderWidth: 2, borderStyle: 'dashed', borderColor: theme.colors.cardBorder, borderRadius: theme.radius.xl, alignItems: 'center', marginTop: 10 },
-  addBtnText: { color: theme.colors.muted, fontWeight: '900', fontSize: 14 },
+  statsCol: { alignItems: 'flex-end', gap: 4 },
+  arrow: { color: theme.colors.muted, fontSize: 24, fontWeight: '900', marginLeft: 4 },
 });
