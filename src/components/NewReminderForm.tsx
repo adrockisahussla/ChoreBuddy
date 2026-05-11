@@ -201,7 +201,7 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
           <TouchableOpacity onPress={onClose} style={s.backBtn} hitSlop={10}>
             <RNText style={s.backText}>←</RNText>
           </TouchableOpacity>
-          <RNText style={s.title}>{isEdit ? 'Edit Reminder' : 'New Reminder'}</RNText>
+          <RNText style={s.title} numberOfLines={1}>{isEdit ? 'Edit Reminder' : 'New Reminder'}</RNText>
           <View style={s.backBtn} />
         </View>
 
@@ -397,7 +397,7 @@ const s = StyleSheet.create({
   },
   backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   backText: { color: '#ffffff', fontSize: 24, fontWeight: '700' },
-  title: { flex: 1, color: '#ffffff', fontSize: 20, fontWeight: '700', textAlign: 'center' },
+  title: { flex: 1, color: '#ffffff', fontSize: 17, fontWeight: '700', textAlign: 'center' },
   input: {
     backgroundColor: theme.colors.card, color: theme.colors.text,
     borderWidth: 1.5, borderColor: theme.colors.cardBorder,

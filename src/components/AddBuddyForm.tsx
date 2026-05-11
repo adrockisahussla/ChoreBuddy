@@ -291,7 +291,7 @@ const s = StyleSheet.create({
   },
   backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   backText: { color: '#ffffff', fontSize: 24, fontWeight: '700' },
-  title: { flex: 1, color: '#ffffff', fontSize: 20, fontWeight: '700', textAlign: 'center' },
+  title: { flex: 1, color: '#ffffff', fontSize: 17, fontWeight: '700', textAlign: 'center' },
   bigAvatar: {
     width: 72, height: 72, borderRadius: 36,
     backgroundColor: theme.colors.purpleSoft,
