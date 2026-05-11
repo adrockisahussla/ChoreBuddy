@@ -113,14 +113,14 @@ export default function HomeScreen({ navigation }: any) {
           num={weekChores.length}
           numColor={overdueCount > 0 ? theme.colors.danger : theme.colors.blue}
           title="Active Chores"
-          meta={`This week${overdueCount > 0 ? ` · ${overdueCount} overdue` : ''}`}
+          meta={overdueCount > 0 ? `${overdueCount} overdue` : undefined}
           onPress={goActiveChores}
         />
         <StatCard
           num={totalPending}
           numColor={totalPending > 0 ? theme.colors.danger : theme.colors.muted}
           title="Approvals"
-          meta={`${pendingChores} chores · ${pendingRewards} rewards · ${pendingClaims} claims`}
+          meta={totalPending > 0 ? `${totalPending} to review` : undefined}
           onPress={goActiveChores}
         />
         <StatCard
