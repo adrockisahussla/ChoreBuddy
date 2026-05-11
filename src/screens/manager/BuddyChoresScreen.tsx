@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { View, ScrollView, TouchableOpacity, StyleSheet, Modal, TextInput, KeyboardAvoidingView, Platform, Text as RNText } from 'react-native';
+import { View, ScrollView, TouchableOpacity, StyleSheet, Modal, TextInput, KeyboardAvoidingView, Platform, ToastAndroid, Text as RNText } from 'react-native';
 import { useChores } from '../../hooks/useChores';
 import { useBuddies } from '../../hooks/useBuddies';
 import { theme } from '../../theme';
 import { chorePoints, isOverdue, buddyLabel } from '../../utils/buddy';
 import { currentWeek } from '../../utils/week';
 import { choreService } from '../../services/choreService';
-import { Header, Screen, Card, Text, WeekNavigator, SCREEN_BOTTOM_PAD } from '../../components';
+import { Header, Screen, Card, Text, WeekNavigator, useConfirm, SCREEN_BOTTOM_PAD } from '../../components';
 
 export default function BuddyChoresScreen({ route, navigation }: any) {
   const buddyUid: string = route.params?.kidId || '';
@@ -27,6 +27,27 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
 
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectionNote, setRejectionNote] = useState('');
+  const confirm = useConfirm();
+
+  const onDelete = async (c: any) => {
+    const ok = await confirm({
+      title: 'Delete chore?',
+      message: `"${c.title}" will be removed.`,
+      confirmLabel: 'Delete',
+      confirmDestructive: true,
+    });
+    if (!ok) return;
+    try {
+      await choreService.remove(c.id);
+      if (Platform.OS === 'android') {
+        ToastAndroid.show(`Removed "${c.title}"`, ToastAndroid.SHORT);
+      }
+    } catch (e: any) {
+      if (Platform.OS === 'android') {
+        ToastAndroid.show(`Delete failed: ${e?.message || e}`, ToastAndroid.LONG);
+      }
+    }
+  };
 
   const openReject = (id: string) => { setRejectingId(id); setRejectionNote(''); };
   const closeReject = () => { setRejectingId(null); setRejectionNote(''); };
@@ -61,7 +82,7 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
               </Text>
             </View>
             {renderStatus(c.status)}
-            {c.status === 'pending' && (
+            {c.status === 'pending' ? (
               <View style={{ flexDirection: 'row', gap: 6, marginLeft: 8 }}>
                 <TouchableOpacity style={s.approve} onPress={() => choreService.update(c.id, { status: 'approved', completedAt: Date.now() })}>
                   <RNText style={s.iconText}>✓</RNText>
@@ -70,6 +91,10 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
                   <RNText style={s.iconText}>✕</RNText>
                 </TouchableOpacity>
               </View>
+            ) : (
+              <TouchableOpacity style={s.delBtn} onPress={() => onDelete(c)} hitSlop={10}>
+                <RNText style={{ fontSize: 16 }}>🗑</RNText>
+              </TouchableOpacity>
             )}
           </Card>
         ))}
@@ -116,6 +141,7 @@ const s = StyleSheet.create({
   approve: { width: 30, height: 30, borderRadius: 15, backgroundColor: theme.colors.success, justifyContent: 'center', alignItems: 'center' },
   reject: { width: 30, height: 30, borderRadius: 15, backgroundColor: theme.colors.danger, justifyContent: 'center', alignItems: 'center' },
   iconText: { color: '#fff', fontWeight: '900', fontSize: 14 },
+  delBtn: { width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: theme.colors.danger + '60', backgroundColor: theme.colors.danger + '15', justifyContent: 'center', alignItems: 'center', marginLeft: 4 },
   modalBackdrop: { flex: 1, backgroundColor: '#00000099', justifyContent: 'center', alignItems: 'center', padding: theme.spacing.lg },
   modalCard: { width: '100%', maxWidth: 400, backgroundColor: theme.colors.card, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.cardBorder, padding: theme.spacing.lg },
   modalInput: { backgroundColor: theme.colors.bg, borderWidth: 1, borderColor: theme.colors.cardBorder, borderRadius: theme.radius.lg, padding: 12, color: theme.colors.text, fontSize: 14, minHeight: 80, textAlignVertical: 'top' },

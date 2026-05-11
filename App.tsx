@@ -9,6 +9,7 @@ import AuthGateway from './src/AuthGateway';
 import DrawerNavigator from './src/navigation/DrawerNavigator';
 import { ConfirmProvider } from './src/components/ConfirmModal';
 import SubmissionToasts from './src/components/SubmissionToasts';
+import ReminderAlarmHost from './src/components/ReminderAlarmHost';
 import { CurrentUserProvider } from './src/hooks/useCurrentUser';
 
 configureGoogleSignin();
@@ -29,6 +30,7 @@ export default function App() {
                 <DrawerNavigator />
               </NavigationContainer>
             </ConfirmProvider>
+            <ReminderAlarmHost />
           </AuthGateway>
         </CurrentUserProvider>
       </SafeAreaProvider>

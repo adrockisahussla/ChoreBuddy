@@ -36,14 +36,24 @@ export interface Reminder {
   familyId: string;
   title: string;
   assignedTo: string;          // buddy uid
+  /** YYYY-MM-DD — date the reminder is for. */
   date: string;
+  /** HH:MM (24h internal). Empty string = all-day. */
   time: string;
   allDay: boolean;
-  repeat: RepeatMode;
-  notify: number;
+  /** Recurrence parallel to chores. once|daily|weekly. */
+  recurrence: Recurrence;
+  /** Epoch ms — when the reminder fires. Used for sorting + scheduling. */
+  dueDate: number;
+  /** ISO week (e.g. "2026-W19") — used by WeekNavigator filter. */
+  weekOf: string;
   notes: string;
   createdBy: string;
   createdAt: number;
+  /** Set when the reminder fires + the manager has been notified. */
+  firedAt?: number;
+  /** Notifee scheduled-notification id, so we can cancel on edit/delete. */
+  notificationId?: string;
 }
 
 export interface Reward {
