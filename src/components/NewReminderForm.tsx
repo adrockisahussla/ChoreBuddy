@@ -9,12 +9,12 @@ import { useFamilyId } from '../hooks/useFamilyId';
 import { useCurrentUser } from '../hooks/useCurrentUser';
 import { getWeekOf } from '../utils/week';
 import { scheduleReminderNotification, cancelReminderNotification } from '../services/notificationService';
-import Pill from './Pill';
 import Button from './Button';
 import Text from './Text';
 import Avatar from './Avatar';
 import TimeWheel from './TimeWheel';
 import DateWheel from './DateWheel';
+import RecurrencePicker, { recurrenceLabel } from './RecurrencePicker';
 
 interface Props {
   visible: boolean;
@@ -27,9 +27,9 @@ interface Props {
 
 /**
  * NewReminderForm: full-screen modal that creates or edits a reminder.
- * Mirrors the chore-create UX (recurrence pills, date chips, assign-to
- * sheet) minus point value, plus a time picker so the parent picks
- * exactly when the alert fires.
+ * All scheduling inputs use the same bottom-sheet field-button pattern:
+ *   Title → Recurrence → (Date if one-time) → Time → Assign → Notes
+ * No "All day" toggle — time is always required.
  */
 export default function NewReminderForm({ visible, onClose, defaultBuddyUid, reminder }: Props) {
   const isEdit = !!reminder;
@@ -41,12 +41,12 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
   const [recur, setRecur] = useState<Recurrence>('once');
   const [onceDate, setOnceDate] = useState<Date | null>(null);
   const [time, setTime] = useState<{ h: number; m: number } | null>(null);
-  const [allDay, setAllDay] = useState(false);
   const [assignTo, setAssignTo] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [wheelOpen, setWheelOpen] = useState(false);
   const [dateWheelOpen, setDateWheelOpen] = useState(false);
+  const [recurOpen, setRecurOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // Hydrate on open
@@ -60,9 +60,8 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
         const [h, m] = reminder.time.split(':').map(Number);
         setTime({ h, m });
       } else {
-        setTime(null);
+        setTime({ h: 9, m: 0 });
       }
-      setAllDay(!!reminder.allDay);
       setAssignTo(reminder.assignedTo);
       setNotes(reminder.notes || '');
     } else {
@@ -70,7 +69,6 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
       setRecur('once');
       setOnceDate(null);
       setTime({ h: 9, m: 0 });
-      setAllDay(false);
       setAssignTo(defaultBuddyUid || null);
       setNotes('');
     }
@@ -84,7 +82,7 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
     !!familyId &&
     !!assignTo &&
     (recur !== 'once' || !!onceDate) &&
-    (allDay || !!time) &&
+    !!time &&
     !loading;
 
   /** Compute the dueDate epoch ms from the form state. */
@@ -98,9 +96,7 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
       // a separate sweep — here we just pick a sensible first-fire timestamp.
       d = new Date();
     }
-    if (allDay) {
-      d.setHours(9, 0, 0, 0); // 9am default for all-day
-    } else if (time) {
+    if (time) {
       d.setHours(time.h, time.m, 0, 0);
     }
     return d.getTime();
@@ -118,15 +114,15 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
     try {
       const dueDate = computeDueDate();
       const dateStr = new Date(dueDate).toLocaleDateString('en-CA');
-      const timeStr = allDay || !time ? '' : `${String(time!.h).padStart(2, '0')}:${String(time!.m).padStart(2, '0')}`;
+      const timeStr = !time ? '' : `${String(time.h).padStart(2, '0')}:${String(time.m).padStart(2, '0')}`;
 
       const data: Omit<Reminder, 'id' | 'createdAt'> = {
         familyId,
         title: title.trim(),
-        assignedTo,
+        assignedTo: assignTo,
         date: dateStr,
         time: timeStr,
-        allDay,
+        allDay: false,
         recurrence: recur,
         dueDate,
         weekOf: getWeekOf(new Date(dueDate)),
@@ -204,19 +200,11 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
           />
 
           <Text variant="sectionLabel" style={{ marginTop: 16 }}>Recurrence</Text>
-          <View style={s.pillRow}>
-            {(['once', 'daily', 'weekly'] as const).map(r => (
-              <Pill
-                key={r}
-                label={r === 'once' ? 'One-time' : r.charAt(0).toUpperCase() + r.slice(1)}
-                active={recur === r}
-                onPress={() => {
-                  setRecur(r);
-                  if (r !== 'once') setOnceDate(null);
-                }}
-              />
-            ))}
-          </View>
+          <TouchableOpacity style={s.timeFieldBtn} onPress={() => setRecurOpen(true)}>
+            <RNText style={s.timeIcon}>🔁</RNText>
+            <RNText style={s.timeText} numberOfLines={1}>{recurrenceLabel(recur)}</RNText>
+            <RNText style={s.timeChev}>›</RNText>
+          </TouchableOpacity>
 
           {recur === 'once' && (
             <>
@@ -234,25 +222,13 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
           )}
 
           <Text variant="sectionLabel" style={{ marginTop: 16 }}>Time</Text>
-          <View style={s.timeRow}>
-            <TouchableOpacity
-              style={[s.timeFieldBtn, allDay && s.timeFieldBtnDisabled]}
-              onPress={() => { setAllDay(false); setWheelOpen(true); }}
-              disabled={allDay}
-            >
-              <RNText style={s.timeIcon}>🕒</RNText>
-              <RNText style={[s.timeText, allDay && { color: theme.colors.muted }]}>
-                {allDay ? '—' : (time ? formatTime12h(time.h, time.m) : 'Pick a time')}
-              </RNText>
-              <RNText style={s.timeChev}>›</RNText>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[s.allDayChip, allDay && s.allDayChipActive]}
-              onPress={() => setAllDay(a => !a)}
-            >
-              <RNText style={[s.allDayText, allDay && { color: '#fff' }]}>All day</RNText>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity style={s.timeFieldBtn} onPress={() => setWheelOpen(true)}>
+            <RNText style={s.timeIcon}>🕒</RNText>
+            <RNText style={s.timeText} numberOfLines={1}>
+              {time ? formatTime12h(time.h, time.m) : 'Pick a time'}
+            </RNText>
+            <RNText style={s.timeChev}>›</RNText>
+          </TouchableOpacity>
 
           <Text variant="sectionLabel" style={{ marginTop: 16 }}>Assign to</Text>
           <TouchableOpacity style={s.assignBtn} onPress={() => setPickerOpen(true)}>
@@ -332,7 +308,7 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
           visible={wheelOpen}
           initial={time || { h: 9, m: 0 }}
           onClose={() => setWheelOpen(false)}
-          onConfirm={(v) => { setAllDay(false); setTime(v); }}
+          onConfirm={(v) => setTime(v)}
         />
 
         <DateWheel
@@ -340,6 +316,16 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
           initial={onceDate || undefined}
           onClose={() => setDateWheelOpen(false)}
           onConfirm={(d) => setOnceDate(d)}
+        />
+
+        <RecurrencePicker
+          visible={recurOpen}
+          value={recur}
+          onClose={() => setRecurOpen(false)}
+          onConfirm={(r) => {
+            setRecur(r);
+            if (r !== 'once') setOnceDate(null);
+          }}
         />
       </SafeAreaView>
     </Modal>
@@ -362,10 +348,8 @@ const s = StyleSheet.create({
     borderRadius: theme.radius.lg,
     padding: 14, fontSize: 16, marginTop: 6,
   },
-  pillRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 6 },
-  timeRow: { flexDirection: 'row', gap: 8, marginTop: 6 },
+  // Shared field-button pattern — Recurrence, Date, Time all use this
   timeFieldBtn: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
@@ -375,88 +359,11 @@ const s = StyleSheet.create({
     borderRadius: theme.radius.lg,
     paddingHorizontal: 14,
     paddingVertical: 14,
+    marginTop: 6,
   },
-  timeFieldBtnDisabled: { opacity: 0.5 },
   timeIcon: { fontSize: 18 },
   timeText: { flex: 1, color: theme.colors.text, fontWeight: '700', fontSize: 16 },
   timeChev: { color: theme.colors.muted, fontSize: 22, fontWeight: '700' },
-  allDayChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: theme.colors.cardBorder,
-    backgroundColor: theme.colors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  allDayChipActive: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
-  allDayText: { color: theme.colors.muted, fontWeight: '700', fontSize: 14 },
-  fieldBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: theme.colors.card,
-    borderWidth: 1.5, borderColor: theme.colors.cardBorder,
-    borderRadius: theme.radius.lg,
-    padding: 14, marginTop: 6,
-  },
-  fieldIcon: { fontSize: 22 },
-  fieldChev: { color: theme.colors.muted, fontSize: 22, fontWeight: '700' },
-
-  // Split row: [calendar/clock Custom button]  [dropdown quick picks]
-  splitRow: { flexDirection: 'row', gap: 8, marginTop: 6 },
-  calendarBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: theme.colors.card,
-    borderWidth: 1.5, borderColor: theme.colors.cardBorder,
-    borderRadius: theme.radius.lg,
-    paddingHorizontal: 14, paddingVertical: 12,
-  },
-  calendarIcon: { fontSize: 18 },
-  calendarLabel: { color: theme.colors.text, fontWeight: '700', fontSize: 14 },
-  dropdownBtn: {
-    flex: 1,
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: theme.colors.card,
-    borderWidth: 1.5, borderColor: theme.colors.cardBorder,
-    borderRadius: theme.radius.lg,
-    paddingHorizontal: 14, paddingVertical: 12,
-  },
-  dropdownLabel: { flex: 1, color: theme.colors.text, fontWeight: '700', fontSize: 14 },
-  dropdownChev: { color: theme.colors.muted, fontSize: 12, fontWeight: '700', marginLeft: 6 },
-  chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  // Material 3 chip: 32dp tall, 14sp text, single-line, 8dp radius
-  datePill: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.cardBorder,
-    backgroundColor: theme.colors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 32,
-  },
-  datePillActive: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
-  // M3 chip label: 14sp body-large
-  datePillLabel: { color: theme.colors.text, fontWeight: '600', fontSize: 14 },
-  // (kept for any holdover refs)
-  datePillSub: { color: theme.colors.muted, fontSize: 10, fontWeight: '500', marginTop: 2 },
-  timeBtn: {
-    flex: 1,
-    backgroundColor: theme.colors.card,
-    borderWidth: 1.5, borderColor: theme.colors.cardBorder,
-    borderRadius: theme.radius.lg,
-    paddingVertical: 14, paddingHorizontal: 14,
-  },
-  timeBtnDisabled: { opacity: 0.5 },
-  timeText: { color: theme.colors.text, fontSize: 16, fontWeight: '600' },
-  allDayChip: {
-    paddingHorizontal: 14, paddingVertical: 14, borderRadius: 999,
-    borderWidth: 1.5, borderColor: theme.colors.cardBorder,
-    backgroundColor: theme.colors.card,
-  },
-  allDayChipActive: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
-  allDayChipText: { color: theme.colors.muted, fontWeight: '700', fontSize: 13 },
   assignBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: theme.colors.card,

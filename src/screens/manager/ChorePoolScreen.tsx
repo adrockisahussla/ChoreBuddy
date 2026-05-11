@@ -9,7 +9,7 @@ import { useBuddies } from '../../hooks/useBuddies';
 import { useFamilyId } from '../../hooks/useFamilyId';
 import { chorePoolService } from '../../services/chorePoolService';
 import { choreService, getEndOfWeek, getWeekOf } from '../../services/choreService';
-import { Header, Screen, Card, Avatar, Pill, Button, Text, useConfirm, DateWheel, SCREEN_BOTTOM_PAD } from '../../components';
+import { Header, Screen, Card, Avatar, Pill, Button, Text, useConfirm, DateWheel, RecurrencePicker, recurrenceLabel, SCREEN_BOTTOM_PAD } from '../../components';
 
 export default function ChorePoolScreen({ navigation }: any) {
   const { chorePool } = useChorePool();
@@ -105,6 +105,7 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [onceDate, setOnceDate] = useState<Date | null>(null);
   const [dateWheelOpen, setDateWheelOpen] = useState(false);
+  const [recurOpen, setRecurOpen] = useState(false);
   const { buddies } = useBuddies();
   const familyId = useFamilyId();
 
@@ -199,20 +200,11 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
         />
 
         <Text variant="sectionLabel" style={{ marginTop: 16 }}>Recurrence</Text>
-        <View style={s.pillRow}>
-          {(['daily', 'weekly', 'once'] as const).map(r => (
-            <Pill
-              key={r}
-              label={r === 'once' ? 'One-time' : r.charAt(0).toUpperCase() + r.slice(1)}
-              active={recur === r}
-              onPress={() => {
-                setRecur(r);
-                setPoints(POINTS_PER[r]);
-                if (r !== 'once') setOnceDate(null);
-              }}
-            />
-          ))}
-        </View>
+        <TouchableOpacity style={s.dateFieldBtn} onPress={() => setRecurOpen(true)}>
+          <RNText style={s.dateIcon}>🔁</RNText>
+          <RNText style={s.dateText} numberOfLines={1}>{recurrenceLabel(recur)}</RNText>
+          <RNText style={s.dateChev}>›</RNText>
+        </TouchableOpacity>
 
         {recur === 'once' && (
           <>
@@ -295,6 +287,17 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
         initial={onceDate || undefined}
         onClose={() => setDateWheelOpen(false)}
         onConfirm={(d) => setOnceDate(d)}
+      />
+
+      <RecurrencePicker
+        visible={recurOpen}
+        value={recur}
+        onClose={() => setRecurOpen(false)}
+        onConfirm={(r) => {
+          setRecur(r);
+          setPoints(POINTS_PER[r]);
+          if (r !== 'once') setOnceDate(null);
+        }}
       />
     </SafeAreaView>
   );
