@@ -75,6 +75,8 @@ export default function RemindersScreen({ route, navigation }: any) {
         onBackPress={isSubScreen ? () => navigation.goBack() : undefined}
       />
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
+        <WeekNavigator weekOf={selectedWeek} onChange={setSelectedWeek} />
+
         <Button
           label="+ New Reminder"
           variant="primary"
@@ -82,8 +84,6 @@ export default function RemindersScreen({ route, navigation }: any) {
           full
           style={{ marginBottom: 12 }}
         />
-
-        <WeekNavigator weekOf={selectedWeek} onChange={setSelectedWeek} />
 
         {list.length === 0 ? (
           <Text variant="empty">No reminders this week.</Text>
