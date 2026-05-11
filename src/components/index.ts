@@ -12,6 +12,7 @@ export { default as WeekNavigator } from './WeekNavigator';
 export { default as HoldToConfirm } from './HoldToConfirm';
 export { default as NewReminderForm } from './NewReminderForm';
 export { default as ReminderAlarm } from './ReminderAlarm';
+export { default as TimeWheel } from './TimeWheel';
 export { default as Text } from './Text';
 export { default as AddBuddyForm } from './AddBuddyForm';
 export { default as SubmissionToasts } from './SubmissionToasts';
