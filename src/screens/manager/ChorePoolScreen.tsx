@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, ScrollView, TouchableOpacity, TextInput, StyleSheet, SafeAreaView, Platform, ToastAndroid, Pressable, Modal, Text as RNText } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { ChorePoolItem, Recurrence } from '../../types';
 import { theme } from '../../theme';
 import { POINTS_PER } from '../../utils/buddy';
@@ -10,7 +9,7 @@ import { useBuddies } from '../../hooks/useBuddies';
 import { useFamilyId } from '../../hooks/useFamilyId';
 import { chorePoolService } from '../../services/chorePoolService';
 import { choreService, getEndOfWeek, getWeekOf } from '../../services/choreService';
-import { Header, Screen, Card, Avatar, Pill, Button, Text, useConfirm, SCREEN_BOTTOM_PAD } from '../../components';
+import { Header, Screen, Card, Avatar, Pill, Button, Text, useConfirm, DateWheel, SCREEN_BOTTOM_PAD } from '../../components';
 
 export default function ChorePoolScreen({ navigation }: any) {
   const { chorePool } = useChorePool();
@@ -105,7 +104,7 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
   const [points, setPoints] = useState<number>(initial?.points ?? POINTS_PER.weekly);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [onceDate, setOnceDate] = useState<Date | null>(null);
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [dateWheelOpen, setDateWheelOpen] = useState(false);
   const { buddies } = useBuddies();
   const familyId = useFamilyId();
 
@@ -168,13 +167,6 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
 
   const canSave = !!title.trim() && (recur !== 'once' || !!onceDate);
 
-  // Reserved for re-use if a custom date-change handler is needed.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _onDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    if (Platform.OS === 'android') setShowDatePicker(false);
-    if (event.type === 'set' && selectedDate) setOnceDate(selectedDate);
-  };
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.bg }}>
       <View style={s.formHeader}>
@@ -222,64 +214,20 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
           ))}
         </View>
 
-        {recur === 'once' && (() => {
-          const today = new Date(); today.setHours(0, 0, 0, 0);
-          const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-          const dayOfWeek = today.getDay();
-          const daysUntilSat = (6 - dayOfWeek + 7) % 7 || 7;
-          const thisSat = new Date(today); thisSat.setDate(today.getDate() + daysUntilSat);
-          const daysUntilNextMon = ((1 - dayOfWeek + 7) % 7) || 7;
-          const nextMon = new Date(today); nextMon.setDate(today.getDate() + daysUntilNextMon + (dayOfWeek === 1 ? 7 : 0));
-          const sameDay = (a: Date | null, b: Date) =>
-            !!a && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-          const dpresets: { label: string; date: Date }[] = [
-            { label: 'Today', date: today },
-            { label: 'Tomorrow', date: tomorrow },
-            { label: thisSat.toLocaleDateString(undefined, { weekday: 'short' }), date: thisSat },
-            { label: 'Next Mon', date: nextMon },
-          ];
-          const isCustom = onceDate && !dpresets.some(p => sameDay(onceDate, p.date));
-          return (
-            <>
-              <Text variant="sectionLabel" style={{ marginTop: 16 }}>Due date</Text>
-              <View style={s.chipGrid}>
-                {dpresets.map(p => {
-                  const active = sameDay(onceDate, p.date);
-                  return (
-                    <TouchableOpacity
-                      key={p.label}
-                      style={[s.datePill, active && s.datePillActive]}
-                      onPress={() => setOnceDate(p.date)}
-                    >
-                      <RNText style={[s.datePillLabel, active && { color: '#fff' }]}>{p.label}</RNText>
-                    </TouchableOpacity>
-                  );
-                })}
-                <TouchableOpacity
-                  style={[s.datePill, isCustom && s.datePillActive]}
-                  onPress={() => setShowDatePicker(true)}
-                >
-                  <RNText style={[s.datePillLabel, isCustom && { color: '#fff' }]}>
-                    📅 {isCustom && onceDate
-                      ? onceDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-                      : 'Custom'}
-                  </RNText>
-                </TouchableOpacity>
-              </View>
-              {showDatePicker && (
-                <DateTimePicker
-                  value={onceDate || new Date()}
-                  mode="date"
-                  minimumDate={new Date()}
-                  onChange={(e, sel) => {
-                    if (Platform.OS === 'android') setShowDatePicker(false);
-                    if (e.type === 'set' && sel) setOnceDate(sel);
-                  }}
-                />
-              )}
-            </>
-          );
-        })()}
+        {recur === 'once' && (
+          <>
+            <Text variant="sectionLabel" style={{ marginTop: 16 }}>Due date</Text>
+            <TouchableOpacity style={s.dateFieldBtn} onPress={() => setDateWheelOpen(true)}>
+              <RNText style={s.dateIcon}>📅</RNText>
+              <RNText style={s.dateText} numberOfLines={1}>
+                {onceDate
+                  ? onceDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+                  : 'Pick a date'}
+              </RNText>
+              <RNText style={s.dateChev}>›</RNText>
+            </TouchableOpacity>
+          </>
+        )}
 
         <Text variant="sectionLabel" style={{ marginTop: 16 }}>Point value</Text>
         <View style={s.pillRow}>
@@ -341,6 +289,13 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <DateWheel
+        visible={dateWheelOpen}
+        initial={onceDate || undefined}
+        onClose={() => setDateWheelOpen(false)}
+        onConfirm={(d) => setOnceDate(d)}
+      />
     </SafeAreaView>
   );
 }
@@ -358,6 +313,21 @@ const s = StyleSheet.create({
   backBtnText: { color: theme.colors.text, fontSize: 26, fontWeight: '900' },
   bigInput: { backgroundColor: theme.colors.card, color: theme.colors.text, borderWidth: 1.5, borderColor: theme.colors.cardBorder, borderRadius: theme.radius.lg, padding: 16, fontSize: 17, fontWeight: '600', marginTop: 8 },
   pillRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 8 },
+  dateFieldBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: theme.colors.card,
+    borderWidth: 1.5,
+    borderColor: theme.colors.cardBorder,
+    borderRadius: theme.radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginTop: 6,
+  },
+  dateIcon: { fontSize: 18 },
+  dateText: { flex: 1, color: theme.colors.text, fontWeight: '700', fontSize: 16 },
+  dateChev: { color: theme.colors.muted, fontSize: 22, fontWeight: '700' },
   fieldBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: theme.colors.card,

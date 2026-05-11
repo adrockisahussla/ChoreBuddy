@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, TouchableOpacity, TextInput, StyleSheet, Alert, Modal, SafeAreaView, Platform, ToastAndroid, Pressable, Text as RNText } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { theme } from '../theme';
 import { Recurrence, Reminder, User } from '../types';
 import { reminderService } from '../services/reminderService';
@@ -15,6 +14,7 @@ import Button from './Button';
 import Text from './Text';
 import Avatar from './Avatar';
 import TimeWheel from './TimeWheel';
+import DateWheel from './DateWheel';
 
 interface Props {
   visible: boolean;
@@ -44,9 +44,9 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
   const [allDay, setAllDay] = useState(false);
   const [assignTo, setAssignTo] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [wheelOpen, setWheelOpen] = useState(false);
+  const [dateWheelOpen, setDateWheelOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // Hydrate on open
@@ -171,29 +171,6 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
     }
   };
 
-  const onDateChange = (event: DateTimePickerEvent, selected?: Date) => {
-    if (Platform.OS === 'android') setShowDatePicker(false);
-    if (event.type === 'set' && selected) setOnceDate(selected);
-  };
-
-  // Date chip math (same as ChorePool)
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-  const dayOfWeek = today.getDay();
-  const daysUntilSat = (6 - dayOfWeek + 7) % 7 || 7;
-  const thisSat = new Date(today); thisSat.setDate(today.getDate() + daysUntilSat);
-  const daysUntilNextMon = ((1 - dayOfWeek + 7) % 7) || 7;
-  const nextMon = new Date(today); nextMon.setDate(today.getDate() + daysUntilNextMon + (dayOfWeek === 1 ? 7 : 0));
-  const sameDay = (a: Date | null, b: Date) =>
-    !!a && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-  const presets: { label: string; date: Date }[] = [
-    { label: 'Today', date: today },
-    { label: 'Tomorrow', date: tomorrow },
-    { label: thisSat.toLocaleDateString(undefined, { weekday: 'short' }), date: thisSat },
-    { label: 'Next Mon', date: nextMon },
-  ];
-  const isCustomDate = onceDate && !presets.some(p => sameDay(onceDate, p.date));
-
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={s.root}>
@@ -244,41 +221,15 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
           {recur === 'once' && (
             <>
               <Text variant="sectionLabel" style={{ marginTop: 16 }}>Date</Text>
-              <View style={s.chipGrid}>
-                {presets.map(p => {
-                  const active = sameDay(onceDate, p.date);
-                  return (
-                    <TouchableOpacity
-                      key={p.label}
-                      style={[s.datePill, active && s.datePillActive]}
-                      onPress={() => setOnceDate(p.date)}
-                    >
-                      <RNText style={[s.datePillLabel, active && { color: '#fff' }]}>{p.label}</RNText>
-                    </TouchableOpacity>
-                  );
-                })}
-                <TouchableOpacity
-                  style={[s.datePill, isCustomDate && s.datePillActive]}
-                  onPress={() => setShowDatePicker(true)}
-                >
-                  <RNText style={[s.datePillLabel, isCustomDate && { color: '#fff' }]}>
-                    📅 {isCustomDate && onceDate
-                      ? onceDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-                      : 'Custom'}
-                  </RNText>
-                </TouchableOpacity>
-              </View>
-              {showDatePicker && (
-                <DateTimePicker
-                  value={onceDate || new Date()}
-                  mode="date"
-                  minimumDate={new Date()}
-                  onChange={(e, sel) => {
-                    if (Platform.OS === 'android') setShowDatePicker(false);
-                    if (e.type === 'set' && sel) setOnceDate(sel);
-                  }}
-                />
-              )}
+              <TouchableOpacity style={s.timeFieldBtn} onPress={() => setDateWheelOpen(true)}>
+                <RNText style={s.timeIcon}>📅</RNText>
+                <RNText style={s.timeText} numberOfLines={1}>
+                  {onceDate
+                    ? onceDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+                    : 'Pick a date'}
+                </RNText>
+                <RNText style={s.timeChev}>›</RNText>
+              </TouchableOpacity>
             </>
           )}
 
@@ -382,6 +333,13 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
           initial={time || { h: 9, m: 0 }}
           onClose={() => setWheelOpen(false)}
           onConfirm={(v) => { setAllDay(false); setTime(v); }}
+        />
+
+        <DateWheel
+          visible={dateWheelOpen}
+          initial={onceDate || undefined}
+          onClose={() => setDateWheelOpen(false)}
+          onConfirm={(d) => setOnceDate(d)}
         />
       </SafeAreaView>
     </Modal>
