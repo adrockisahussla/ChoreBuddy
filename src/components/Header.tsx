@@ -33,7 +33,7 @@ export default function Header({ title, onMenuPress, onBackPress, rightSlot, bad
         </TouchableOpacity>
       )}
       <Text style={s.title} numberOfLines={1}>
-        <Text style={s.sparkle}>✦ </Text>{title}
+        {!onBackPress && <Text style={s.sparkle}>✦ </Text>}{title}
       </Text>
       {rightSlot}
     </View>

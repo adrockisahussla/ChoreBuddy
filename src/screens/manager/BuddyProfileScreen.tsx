@@ -44,10 +44,10 @@ export default function BuddyProfileScreen({ route, navigation }: any) {
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg }}>
         <Card row padding={16} radius={theme.radius.xxl} style={{ gap: 16, marginBottom: 12 }}>
           <Avatar emoji={buddy?.avatar || '👤'} accent={accent} size="lg" />
-          <View style={{ flex: 1 }}>
-            <Text variant="h2" style={{ fontSize: 22 }}>{name}</Text>
-            {buddy?.email && <Text variant="meta" style={{ marginTop: 4 }}>{buddy.email}</Text>}
-            <Text variant="meta" style={{ marginTop: 4 }}>★ {points} pts</Text>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text variant="h2" style={{ fontSize: 22 }} numberOfLines={1}>{name}</Text>
+            {buddy?.email && <Text variant="meta" style={{ marginTop: 4, fontSize: 12 }} numberOfLines={1}>{buddy.email}</Text>}
+            <Text variant="meta" style={{ marginTop: 4, fontSize: 14, color: theme.colors.accent, fontWeight: '700' }}>★ {points} pts</Text>
           </View>
         </Card>
 
