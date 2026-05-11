@@ -9,21 +9,30 @@ interface Props {
   title: string;
   meta?: string;
   onPress?: () => void;
+  variant?: 'default' | 'brand';
 }
 
 /**
  * StatCard: large-number + title + meta + chevron card used on Home for
  * Active Chores, Pending Approvals, Reminders.
+ *
+ * `variant=brand` paints the card in the brand pink (used for the
+ * featured "Active Chores" stat).
  */
-export default function StatCard({ num, numColor, title, meta, onPress }: Props) {
+export default function StatCard({ num, numColor, title, meta, onPress, variant = 'default' }: Props) {
+  const brand = variant === 'brand';
   return (
-    <TouchableOpacity style={s.card} onPress={onPress} activeOpacity={0.85}>
-      <Text style={[s.num, { color: numColor || theme.colors.blue }]}>{num}</Text>
+    <TouchableOpacity
+      style={[s.card, brand && s.brand, !brand && theme.shadow.card]}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      <Text style={[s.num, { color: brand ? '#ffffff' : (numColor || theme.colors.purple) }]}>{num}</Text>
       <View style={{ flex: 1 }}>
-        <Text variant="h3" style={{ fontSize: 15 }}>{title}</Text>
-        {!!meta && <Text variant="meta" style={{ marginTop: 2 }}>{meta}</Text>}
+        <Text variant="h3" style={{ fontSize: 16, color: brand ? '#ffffff' : theme.colors.text }}>{title}</Text>
+        {!!meta && <Text variant="meta" style={{ marginTop: 2, color: brand ? '#ffffff' : theme.colors.muted, opacity: brand ? 0.85 : 1 }}>{meta}</Text>}
       </View>
-      <Text style={s.arrow}>›</Text>
+      <Text style={[s.arrow, brand && { color: '#ffffff' }]}>›</Text>
     </TouchableOpacity>
   );
 }
@@ -34,8 +43,12 @@ const s = StyleSheet.create({
     backgroundColor: theme.colors.card,
     borderWidth: 1, borderColor: theme.colors.cardBorder,
     borderRadius: theme.radius.xl,
-    padding: 14, marginBottom: 8,
+    padding: 16, marginBottom: 10,
   },
-  num: { fontSize: 32, fontWeight: '900', minWidth: 50, textAlign: 'center' },
-  arrow: { color: theme.colors.muted, fontSize: 22, fontWeight: '900' },
+  brand: {
+    backgroundColor: theme.colors.accent,
+    borderColor: theme.colors.accent,
+  },
+  num: { fontSize: 32, fontWeight: '700', minWidth: 50, textAlign: 'center' },
+  arrow: { color: theme.colors.muted, fontSize: 22, fontWeight: '700' },
 });

@@ -15,8 +15,8 @@ interface Props {
 }
 
 /**
- * Pill: rounded pill button used for recurrence selectors, point values,
- * filter chips. Active state inverts to accent fill + black text.
+ * Pill: rounded toggle pill (recurrence, point values, filter chips).
+ * Active state inverts to brand-pink fill with white text.
  */
 export default function Pill({ label, active, size = 'md', onPress, disabled, style, textStyle }: Props) {
   const sizeStyle = size === 'sm' ? s.sm : s.md;
@@ -41,12 +41,12 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  md: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 22 },
-  sm: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, minWidth: 40, borderWidth: 1 },
+  md: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999 },
+  sm: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, minWidth: 44, borderWidth: 1 },
   active: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
   disabled: { opacity: 0.4 },
-  text: { color: theme.colors.muted, fontWeight: '700' },
+  text: { color: theme.colors.muted, fontWeight: '600' },
   mdText: { fontSize: 14 },
   smText: { fontSize: 13 },
-  activeText: { color: '#000' },
+  activeText: { color: theme.colors.accentText, fontWeight: '700' },
 });

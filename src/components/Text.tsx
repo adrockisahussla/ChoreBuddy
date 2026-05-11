@@ -12,13 +12,8 @@ interface Props extends Omit<TextProps, 'style'> {
 }
 
 /**
- * Text: typography presets pulled from theme.text. Eliminates the
- * fontSize/fontWeight/letterSpacing repetition across screens.
- *
- * - h1/h2/h3: page/section/card titles (text color)
- * - sectionLabel: 11px uppercase tracked label (muted)
- * - body/meta/tiny: progressively smaller body text
- * - empty: italic muted, used for empty-state messages
+ * Text: typography presets from the new design system.
+ * Inter 400/500/700. Dark text on light bg.
  */
 export default function Text({ children, variant = 'body', color, style, ...rest }: Props) {
   const v = variantStyles[variant];
@@ -31,20 +26,19 @@ export default function Text({ children, variant = 'body', color, style, ...rest
 }
 
 const variantStyles: Record<Variant, TextStyle> = {
-  h1: { color: theme.colors.text, fontSize: 24, fontWeight: '900' },
-  h2: { color: theme.colors.text, fontSize: 20, fontWeight: '900' },
-  h3: { color: theme.colors.text, fontSize: 16, fontWeight: '900' },
+  h1: { color: theme.colors.text, fontSize: 24, fontWeight: '700' },
+  h2: { color: theme.colors.text, fontSize: 20, fontWeight: '700' },
+  h3: { color: theme.colors.text, fontSize: 18, fontWeight: '700' },
   sectionLabel: {
-    color: theme.colors.muted, fontSize: 11, fontWeight: '900',
-    letterSpacing: 1.5, textTransform: 'uppercase',
+    color: theme.colors.muted, fontSize: 11, fontWeight: '700',
+    letterSpacing: 1, textTransform: 'uppercase',
     marginTop: 4, marginBottom: 10,
   },
-  body: { color: theme.colors.text, fontSize: 14, fontWeight: '700' },
-  meta: { color: theme.colors.muted, fontSize: 12, fontWeight: '700' },
-  tiny: { color: theme.colors.muted, fontSize: 10, fontWeight: '700' },
+  body: { color: theme.colors.text, fontSize: 16, fontWeight: '400' },
+  meta: { color: theme.colors.muted, fontSize: 14, fontWeight: '500' },
+  tiny: { color: theme.colors.muted, fontSize: 12, fontWeight: '500' },
   empty: {
-    color: theme.colors.muted, fontSize: 13, fontWeight: '700',
+    color: theme.colors.muted, fontSize: 14, fontWeight: '500',
     textAlign: 'center', padding: 20, fontStyle: 'italic',
   },
 };
-
