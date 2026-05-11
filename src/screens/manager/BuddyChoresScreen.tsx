@@ -4,14 +4,26 @@ import { useChores } from '../../hooks/useChores';
 import { useBuddies } from '../../hooks/useBuddies';
 import { theme } from '../../theme';
 import { chorePoints, isOverdue, buddyLabel } from '../../utils/buddy';
+import { currentWeek } from '../../utils/week';
 import { choreService } from '../../services/choreService';
-import { Header, Screen, Card, Text, SCREEN_BOTTOM_PAD } from '../../components';
+import { Header, Screen, Card, Text, WeekNavigator, SCREEN_BOTTOM_PAD } from '../../components';
 
 export default function BuddyChoresScreen({ route, navigation }: any) {
   const buddyUid: string = route.params?.kidId || '';
   const { chores } = useChores();
   const { buddies } = useBuddies();
-  const my = chores.filter(c => c.assignedTo === buddyUid).sort((a, b) => (a.dueDate || 0) - (b.dueDate || 0));
+  const [selectedWeek, setSelectedWeek] = useState<string>(currentWeek());
+  const my = chores
+    .filter(c => c.assignedTo === buddyUid)
+    .filter(c => {
+      // weekly/daily chores carry forward — visible from creation onward.
+      // one-time chores show only on their specific week.
+      if (c.recurrence === 'weekly' || c.recurrence === 'daily') {
+        return (c.weekOf || '') <= selectedWeek;
+      }
+      return c.weekOf === selectedWeek;
+    })
+    .sort((a, b) => (a.dueDate || 0) - (b.dueDate || 0));
 
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectionNote, setRejectionNote] = useState('');
@@ -37,8 +49,9 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
     <Screen contentStyle={{ padding: 0 }}>
       <Header title={`${buddyLabel(buddyUid, buddies)} · Chores`} onBackPress={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
+        <WeekNavigator weekOf={selectedWeek} onChange={setSelectedWeek} />
         {my.length === 0 ? (
-          <Text variant="empty">No chores assigned.</Text>
+          <Text variant="empty">No chores this week.</Text>
         ) : my.map(c => (
           <Card key={c.id} row variant={isOverdue(c) ? 'warning' : 'default'} radius={theme.radius.lg} style={{ gap: 8 }}>
             <View style={{ flex: 1 }}>

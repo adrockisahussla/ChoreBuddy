@@ -6,7 +6,8 @@ import { theme } from '../../theme';
 import { chorePoints, isOverdue, POINTS_PER } from '../../utils/buddy';
 import { choreService } from '../../services/choreService';
 import { Chore, Recurrence } from '../../types';
-import { Header, Screen, Card, Avatar, Pill, Button, Text, SCREEN_BOTTOM_PAD } from '../../components';
+import { Header, Screen, Card, Avatar, Pill, Button, Text, WeekNavigator, SCREEN_BOTTOM_PAD } from '../../components';
+import { currentWeek } from '../../utils/week';
 
 export default function ActiveChoresScreen({ navigation }: any) {
   const { chores } = useChores();
@@ -14,6 +15,7 @@ export default function ActiveChoresScreen({ navigation }: any) {
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectionNote, setRejectionNote] = useState('');
   const [editing, setEditing] = useState<Chore | null>(null);
+  const [selectedWeek, setSelectedWeek] = useState<string>(currentWeek());
 
   const openReject = (id: string) => { setRejectingId(id); setRejectionNote(''); };
   const closeReject = () => { setRejectingId(null); setRejectionNote(''); };
@@ -38,15 +40,23 @@ export default function ActiveChoresScreen({ navigation }: any) {
     }
   };
 
-  const openChores = chores.filter(c => c.status !== 'approved');
+  const openChores = chores
+    .filter(c => c.status !== 'approved')
+    .filter(c => {
+      if (c.recurrence === 'weekly' || c.recurrence === 'daily') {
+        return (c.weekOf || '') <= selectedWeek;
+      }
+      return c.weekOf === selectedWeek;
+    });
   const totalOpen = openChores.length;
 
   return (
     <Screen contentStyle={{ padding: 0 }}>
       <Header title="Active Chores" onBackPress={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
+        <WeekNavigator weekOf={selectedWeek} onChange={setSelectedWeek} />
         {totalOpen === 0 && (
-          <Text variant="empty" style={{ padding: 40 }}>No active chores. 🎉</Text>
+          <Text variant="empty" style={{ padding: 40 }}>No active chores this week. 🎉</Text>
         )}
 
         {buddies.map(b => {
