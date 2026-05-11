@@ -222,7 +222,7 @@ export default function AddBuddyForm({ visible, onClose, buddy }: Props) {
                 Danger zone
               </Text>
               <Button
-                label="Remove from family"
+                label="Remove Buddy"
                 variant="danger"
                 onPress={() => setRemoveOpen(true)}
                 full
