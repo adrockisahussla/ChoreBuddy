@@ -192,13 +192,16 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
       >
         <Text variant="sectionLabel" style={{ marginTop: 16 }}>Title</Text>
         <TextInput
-          style={s.bigInput}
+          style={[s.bigInput, { minHeight: 56 }]}
           placeholder="What's the chore?"
           placeholderTextColor={theme.colors.muted}
           value={title}
           onChangeText={setTitle}
           autoFocus={!editing}
-          maxLength={60}
+          maxLength={120}
+          multiline
+          scrollEnabled={false}
+          textAlignVertical="top"
         />
 
         <Text variant="sectionLabel" style={{ marginTop: 16 }}>Recurrence</Text>

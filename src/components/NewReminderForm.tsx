@@ -220,13 +220,16 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
         >
           <Text variant="sectionLabel" style={{ marginTop: 8 }}>Title</Text>
           <TextInput
-            style={s.input}
+            style={[s.input, { minHeight: 52 }]}
             placeholder="What's the reminder?"
             placeholderTextColor={theme.colors.muted}
             value={title}
             onChangeText={setTitle}
             autoFocus={!isEdit}
-            maxLength={60}
+            maxLength={120}
+            multiline
+            scrollEnabled={false}
+            textAlignVertical="top"
           />
 
           <Text variant="sectionLabel" style={{ marginTop: 16 }}>Recurrence</Text>
@@ -285,23 +288,51 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
           )}
 
           <Text variant="sectionLabel" style={{ marginTop: 16 }}>Time</Text>
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 6, alignItems: 'center' }}>
-            <TouchableOpacity
-              style={[s.timeBtn, allDay && s.timeBtnDisabled]}
-              onPress={() => setShowTimePicker(true)}
-              disabled={allDay}
-            >
-              <RNText style={[s.timeText, allDay && { color: theme.colors.muted }]}>
-                🕒 {time && !allDay ? formatTime12h(time.h, time.m) : 'Pick a time'}
-              </RNText>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[s.allDayChip, allDay && s.allDayChipActive]}
-              onPress={() => setAllDay(a => !a)}
-            >
-              <RNText style={[s.allDayChipText, allDay && { color: '#fff' }]}>All day</RNText>
-            </TouchableOpacity>
-          </View>
+          {(() => {
+            const TIME_PRESETS: { label: string; h: number; m: number }[] = [
+              { label: 'Morning',      h: 8,  m: 0 },
+              { label: 'Noon',         h: 12, m: 0 },
+              { label: 'After school', h: 15, m: 30 },
+              { label: 'Dinner',       h: 18, m: 0 },
+              { label: 'Bedtime',      h: 20, m: 30 },
+            ];
+            const isCustom = !allDay && !!time && !TIME_PRESETS.some(p => p.h === time.h && p.m === time.m);
+            return (
+              <View style={s.pillRow}>
+                {TIME_PRESETS.map(p => {
+                  const active = !allDay && !!time && time.h === p.h && time.m === p.m;
+                  return (
+                    <TouchableOpacity
+                      key={p.label}
+                      style={[s.datePill, active && s.datePillActive]}
+                      onPress={() => { setAllDay(false); setTime({ h: p.h, m: p.m }); }}
+                    >
+                      <RNText style={[s.datePillLabel, active && { color: '#fff' }]}>{p.label}</RNText>
+                      <RNText style={[s.datePillSub, active && { color: '#fff', opacity: 0.85 }]}>
+                        {formatTime12h(p.h, p.m)}
+                      </RNText>
+                    </TouchableOpacity>
+                  );
+                })}
+                <TouchableOpacity
+                  style={[s.datePill, isCustom && s.datePillActive]}
+                  onPress={() => { setAllDay(false); setShowTimePicker(true); }}
+                >
+                  <RNText style={[s.datePillLabel, isCustom && { color: '#fff' }]}>🕒 Custom</RNText>
+                  <RNText style={[s.datePillSub, isCustom && { color: '#fff', opacity: 0.85 }]}>
+                    {isCustom && time ? formatTime12h(time.h, time.m) : 'Pick time'}
+                  </RNText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[s.datePill, allDay && s.datePillActive]}
+                  onPress={() => setAllDay(a => !a)}
+                >
+                  <RNText style={[s.datePillLabel, allDay && { color: '#fff' }]}>📅 All day</RNText>
+                  <RNText style={[s.datePillSub, allDay && { color: '#fff', opacity: 0.85 }]}>no time</RNText>
+                </TouchableOpacity>
+              </View>
+            );
+          })()}
           {showTimePicker && (
             <DateTimePicker
               value={(() => {
