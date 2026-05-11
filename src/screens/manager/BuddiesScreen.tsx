@@ -116,12 +116,12 @@ export default function BuddiesScreen({ navigation }: any) {
         })}
 
         <Button
-          label={addOpen ? '— Close' : '+ Add a Buddy'}
+          label="+ Add a Buddy"
           variant="primary"
-          onPress={() => setAddOpen(o => !o)}
+          onPress={() => setAddOpen(true)}
           style={{ marginTop: 10 }}
         />
-        {addOpen && <AddBuddyForm onDone={() => setAddOpen(false)} />}
+        <AddBuddyForm visible={addOpen} onClose={() => setAddOpen(false)} />
       </View>
     </Screen>
   );

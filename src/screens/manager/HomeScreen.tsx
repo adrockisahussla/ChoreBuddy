@@ -101,12 +101,12 @@ export default function HomeScreen({ navigation }: any) {
           <Text variant="meta" style={{ marginBottom: 8 }}>No buddies yet — add one below.</Text>
         )}
         <Button
-          label={addOpen ? '— Close' : '+ Add a Buddy'}
+          label="+ Add a Buddy"
           variant="primary"
-          onPress={() => setAddOpen(o => !o)}
+          onPress={() => setAddOpen(true)}
           style={{ marginTop: 8 }}
         />
-        {addOpen && <AddBuddyForm onDone={() => setAddOpen(false)} />}
+        <AddBuddyForm visible={addOpen} onClose={() => setAddOpen(false)} />
 
         <Text variant="sectionLabel" style={{ marginTop: 24 }}>Summary</Text>
         <StatCard
