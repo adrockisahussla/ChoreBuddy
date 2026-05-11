@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, ScrollView, TouchableOpacity, StyleSheet, Modal, TextInput, KeyboardAvoidingView, Platform, Text as RNText } from 'react-native';
 import { useChores } from '../../hooks/useChores';
 import { useBuddies } from '../../hooks/useBuddies';
 import { theme } from '../../theme';
 import { chorePoints, isOverdue, buddyLabel } from '../../utils/buddy';
 import { choreService } from '../../services/choreService';
-import Header from '../../components/Header';
+import { Header, Screen, Card, Text } from '../../components';
 
 export default function BuddyChoresScreen({ route, navigation }: any) {
   const buddyUid: string = route.params?.kidId || '';
@@ -27,36 +27,38 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
   };
 
   const renderStatus = (st: string) => {
-    if (st === 'pending') return <Text style={[s.statusPill, { backgroundColor: '#f59e0b33', color: '#f59e0b' }]}>Pending</Text>;
-    if (st === 'approved') return <Text style={[s.statusPill, { backgroundColor: '#22c55e33', color: '#22c55e' }]}>Done</Text>;
-    if (st === 'rejected') return <Text style={[s.statusPill, { backgroundColor: '#ef444433', color: '#ef4444' }]}>Redo</Text>;
-    return <Text style={[s.statusPill, { backgroundColor: '#7b84a833', color: theme.colors.muted }]}>Todo</Text>;
+    if (st === 'pending') return <RNText style={[s.statusPill, { backgroundColor: '#f59e0b33', color: '#f59e0b' }]}>Pending</RNText>;
+    if (st === 'approved') return <RNText style={[s.statusPill, { backgroundColor: '#22c55e33', color: '#22c55e' }]}>Done</RNText>;
+    if (st === 'rejected') return <RNText style={[s.statusPill, { backgroundColor: '#ef444433', color: '#ef4444' }]}>Redo</RNText>;
+    return <RNText style={[s.statusPill, { backgroundColor: '#7b84a833', color: theme.colors.muted }]}>Todo</RNText>;
   };
 
   return (
-    <SafeAreaView style={s.root}>
+    <Screen contentStyle={{ padding: 0 }}>
       <Header title={`${buddyLabel(buddyUid, buddies)} · Chores`} onBackPress={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg }}>
         {my.length === 0 ? (
-          <Text style={s.empty}>No chores assigned.</Text>
+          <Text variant="empty">No chores assigned.</Text>
         ) : my.map(c => (
-          <View key={c.id} style={[s.card, isOverdue(c) && { borderColor: theme.colors.danger + '80' }]}>
+          <Card key={c.id} row variant={isOverdue(c) ? 'warning' : 'default'} radius={theme.radius.lg} style={{ gap: 8 }}>
             <View style={{ flex: 1 }}>
-              <Text style={s.title}>{c.title}</Text>
-              <Text style={s.meta}>+{chorePoints(c)} pts · {c.recurrence}{isOverdue(c) ? ' · ⚠ Overdue' : ''}</Text>
+              <Text variant="h3" style={{ fontSize: 14 }}>{c.title}</Text>
+              <Text variant="tiny" style={{ marginTop: 2, fontSize: 11 }}>
+                +{chorePoints(c)} pts · {c.recurrence}{isOverdue(c) ? ' · ⚠ Overdue' : ''}
+              </Text>
             </View>
             {renderStatus(c.status)}
             {c.status === 'pending' && (
               <View style={{ flexDirection: 'row', gap: 6, marginLeft: 8 }}>
                 <TouchableOpacity style={s.approve} onPress={() => choreService.update(c.id, { status: 'approved', completedAt: Date.now() })}>
-                  <Text style={s.approveText}>✓</Text>
+                  <RNText style={s.iconText}>✓</RNText>
                 </TouchableOpacity>
                 <TouchableOpacity style={s.reject} onPress={() => openReject(c.id)}>
-                  <Text style={s.rejectText}>✕</Text>
+                  <RNText style={s.iconText}>✕</RNText>
                 </TouchableOpacity>
               </View>
             )}
-          </View>
+          </Card>
         ))}
       </ScrollView>
 
@@ -66,8 +68,8 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={s.modalCard}>
-            <Text style={s.modalTitle}>Reject chore</Text>
-            <Text style={s.modalSubtitle}>Tell your buddy why so they can fix it.</Text>
+            <Text variant="h2" style={{ fontSize: 18, marginBottom: 4 }}>Reject chore</Text>
+            <Text variant="meta" style={{ marginBottom: 12 }}>Tell your buddy why so they can fix it.</Text>
             <TextInput
               style={s.modalInput}
               placeholder="Why? e.g. 'You missed the corners'"
@@ -79,38 +81,30 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
             />
             <View style={s.modalActions}>
               <TouchableOpacity style={[s.modalBtn, s.modalCancel]} onPress={closeReject}>
-                <Text style={s.modalCancelText}>Cancel</Text>
+                <RNText style={s.modalCancelText}>Cancel</RNText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[s.modalBtn, s.modalSubmit, !rejectionNote.trim() && { opacity: 0.5 }]}
                 onPress={submitReject}
                 disabled={!rejectionNote.trim()}
               >
-                <Text style={s.modalSubmitText}>Reject</Text>
+                <RNText style={s.modalSubmitText}>Reject</RNText>
               </TouchableOpacity>
             </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: theme.colors.bg },
-  empty: { color: theme.colors.muted, textAlign: 'center', padding: 30, fontStyle: 'italic' },
-  card: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: theme.colors.card, borderWidth: 1, borderColor: theme.colors.cardBorder, borderRadius: theme.radius.lg, padding: 12, marginBottom: 8 },
-  title: { color: theme.colors.text, fontWeight: '900', fontSize: 14 },
-  meta: { color: theme.colors.muted, fontSize: 11, fontWeight: '700', marginTop: 2 },
   statusPill: { fontSize: 10, fontWeight: '900', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, overflow: 'hidden' },
   approve: { width: 30, height: 30, borderRadius: 15, backgroundColor: theme.colors.success, justifyContent: 'center', alignItems: 'center' },
-  approveText: { color: '#fff', fontWeight: '900', fontSize: 14 },
   reject: { width: 30, height: 30, borderRadius: 15, backgroundColor: theme.colors.danger, justifyContent: 'center', alignItems: 'center' },
-  rejectText: { color: '#fff', fontWeight: '900', fontSize: 14 },
+  iconText: { color: '#fff', fontWeight: '900', fontSize: 14 },
   modalBackdrop: { flex: 1, backgroundColor: '#00000099', justifyContent: 'center', alignItems: 'center', padding: theme.spacing.lg },
   modalCard: { width: '100%', maxWidth: 400, backgroundColor: theme.colors.card, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.cardBorder, padding: theme.spacing.lg },
-  modalTitle: { color: theme.colors.text, fontWeight: '900', fontSize: 18, marginBottom: 4 },
-  modalSubtitle: { color: theme.colors.muted, fontSize: 12, fontWeight: '700', marginBottom: 12 },
   modalInput: { backgroundColor: theme.colors.bg, borderWidth: 1, borderColor: theme.colors.cardBorder, borderRadius: theme.radius.lg, padding: 12, color: theme.colors.text, fontSize: 14, minHeight: 80, textAlignVertical: 'top' },
   modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12 },
   modalBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: theme.radius.lg },
