@@ -102,7 +102,7 @@ export default function BuddiesScreen({ navigation }: any) {
             >
               <Avatar emoji={b.avatar || '👤'} accent={b.accent} size="sm" />
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text variant="h3" style={{ fontSize: 16 }} numberOfLines={1}>{b.displayName}</Text>
+                <Text variant="h3" style={{ fontSize: 15 }} numberOfLines={1}>{b.displayName}</Text>
                 {b.email && <Text variant="tiny" style={{ marginTop: 2 }} numberOfLines={1}>{b.email}</Text>}
               </View>
               <View style={s.statsCol}>
