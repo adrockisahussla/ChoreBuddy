@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Share } from 'react-native';
+import { View, ScrollView, TouchableOpacity, StyleSheet, Share, Text as RNText } from 'react-native';
 import { useChores } from '../../hooks/useChores';
 import { useReminders } from '../../hooks/useReminders';
 import { useRewards, useRewardClaims } from '../../hooks/useRewards';
@@ -9,9 +9,10 @@ import { theme } from '../../theme';
 import { buddyLabel, isOverdue, chorePoints } from '../../utils/buddy';
 import { currentWeek } from '../../utils/week';
 import { inviteService } from '../../services/inviteService';
-import AddBuddyForm from '../../components/AddBuddyForm';
-import Header from '../../components/Header';
-import { useConfirm } from '../../components/ConfirmModal';
+import {
+  Header, Screen, Card, Avatar, Text, Button, StatCard,
+  AddBuddyForm, useConfirm,
+} from '../../components';
 
 export default function HomeScreen({ navigation }: any) {
   const { chores } = useChores();
@@ -66,14 +67,14 @@ export default function HomeScreen({ navigation }: any) {
   };
 
   return (
-    <SafeAreaView style={s.root}>
+    <Screen contentStyle={{ padding: 0 }}>
       <Header
         title="Home"
         badge={totalPending}
         onMenuPress={() => navigation.getParent?.()?.openDrawer?.()}
       />
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg }}>
-        <Text style={[s.sectionLabel, { marginTop: 0 }]}>Buddies</Text>
+        <Text variant="sectionLabel" style={{ marginTop: 0 }}>Buddies</Text>
         {buddies.length > 0 ? (
           <View style={s.buddiesGrid}>
             {buddies.map(b => {
@@ -83,73 +84,71 @@ export default function HomeScreen({ navigation }: any) {
               const pendingMyClaims = rewardClaims.filter(c => c.kidId === b.uid && c.status === 'pending').length;
               const attention = pendingMyChores + pendingMyRewards + pendingMyClaims;
               return (
-                <TouchableOpacity key={b.uid} style={s.buddyCard} onPress={() => navigation.navigate('BuddyProfile', { kidId: b.uid })}>
-                  <View style={[s.buddyAvatar, { backgroundColor: (b.accent || theme.colors.purple) + '40' }]}>
-                    <Text style={{ fontSize: 28 }}>{b.avatar || '👤'}</Text>
-                    {attention > 0 && (
-                      <View style={s.attentionDot}><Text style={s.attentionDotText}>{attention}</Text></View>
-                    )}
-                  </View>
-                  <Text style={s.buddyName}>{b.displayName}</Text>
-                  <Text style={s.buddyMeta}>{myActive} active</Text>
+                <TouchableOpacity
+                  key={b.uid}
+                  style={s.buddyGridCard}
+                  onPress={() => navigation.navigate('BuddyProfile', { kidId: b.uid })}
+                  activeOpacity={0.85}
+                >
+                  <Avatar emoji={b.avatar || '👤'} accent={b.accent} size="md" attention={attention} style={{ marginBottom: 8 }} />
+                  <Text variant="body" style={{ fontSize: 14 }}>{b.displayName}</Text>
+                  <Text variant="tiny" style={{ marginTop: 2, fontSize: 11 }}>{myActive} active</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
         ) : (
-          <Text style={s.emptyHint}>No buddies yet — add one below.</Text>
+          <Text variant="meta" style={{ marginBottom: 8 }}>No buddies yet — add one below.</Text>
         )}
-        <TouchableOpacity style={s.addBtn} onPress={() => setAddOpen(o => !o)}>
-          <Text style={s.addBtnText}>{addOpen ? '— Close' : '+ Add a Buddy'}</Text>
-        </TouchableOpacity>
+        <Button
+          label={addOpen ? '— Close' : '+ Add a Buddy'}
+          variant="dashed"
+          onPress={() => setAddOpen(o => !o)}
+          style={{ marginTop: 6 }}
+        />
         {addOpen && <AddBuddyForm onDone={() => setAddOpen(false)} />}
 
-        <TouchableOpacity style={s.card} onPress={goActiveChores}>
-          <Text style={[s.bigNum, { color: overdueCount > 0 ? theme.colors.danger : theme.colors.blue }]}>{weekChores.length}</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={s.cardTitle}>Active Chores</Text>
-            <Text style={s.cardMeta}>This week{overdueCount > 0 ? ` · ${overdueCount} overdue` : ''}</Text>
-          </View>
-          <Text style={s.arrow}>›</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={s.card} onPress={goActiveChores}>
-          <Text style={[s.bigNum, { color: totalPending > 0 ? theme.colors.danger : theme.colors.muted }]}>{totalPending}</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={s.cardTitle}>Pending Approvals</Text>
-            <Text style={s.cardMeta}>{pendingChores} chores · {pendingRewards} reward requests · {pendingClaims} claims</Text>
-          </View>
-          <Text style={s.arrow}>›</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={s.card} onPress={goReminders}>
-          <Text style={[s.bigNum, { color: theme.colors.purple }]}>{upcomingReminders}</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={s.cardTitle}>Reminders</Text>
-            <Text style={s.cardMeta}>Upcoming</Text>
-          </View>
-          <Text style={s.arrow}>›</Text>
-        </TouchableOpacity>
+        <StatCard
+          num={weekChores.length}
+          numColor={overdueCount > 0 ? theme.colors.danger : theme.colors.blue}
+          title="Active Chores"
+          meta={`This week${overdueCount > 0 ? ` · ${overdueCount} overdue` : ''}`}
+          onPress={goActiveChores}
+        />
+        <StatCard
+          num={totalPending}
+          numColor={totalPending > 0 ? theme.colors.danger : theme.colors.muted}
+          title="Pending Approvals"
+          meta={`${pendingChores} chores · ${pendingRewards} reward requests · ${pendingClaims} claims`}
+          onPress={goActiveChores}
+        />
+        <StatCard
+          num={upcomingReminders}
+          numColor={theme.colors.purple}
+          title="Reminders"
+          meta="Upcoming"
+          onPress={goReminders}
+        />
 
         {pendingInvites.length > 0 && (
           <>
-            <Text style={s.sectionLabel}>Pending Invites ({pendingInvites.length})</Text>
+            <Text variant="sectionLabel">Pending Invites ({pendingInvites.length})</Text>
             {pendingInvites.map(inv => (
-              <View key={inv.id} style={s.inviteRow}>
-                <View style={s.inviteAvatar}>
-                  <Text style={{ fontSize: 22 }}>{inv.avatar || '👤'}</Text>
-                </View>
+              <Card key={inv.id} row variant="invite" style={{ gap: 12 }}>
+                <Avatar emoji={inv.avatar || '👤'} accent={theme.colors.accent} size="sm" />
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <Text style={s.inviteName}>{inv.suggestedName}</Text>
                     <View style={s.invitePill}>
-                      <Text style={s.invitePillText}>{inv.role === 'manager' ? 'CO-MANAGER' : 'BUDDY'}</Text>
+                      <RNText style={s.invitePillText}>{inv.role === 'manager' ? 'CO-MANAGER' : 'BUDDY'}</RNText>
                     </View>
                   </View>
-                  <Text style={s.inviteMeta}>⏳ expires {new Date(inv.expiresAt).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}</Text>
+                  <Text style={s.inviteMeta}>
+                    ⏳ expires {new Date(inv.expiresAt).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
+                  </Text>
                 </View>
                 <TouchableOpacity style={s.iconBtn} onPress={() => shareInvite(inv.token)}>
-                  <Text style={s.iconBtnText}>🔗</Text>
+                  <RNText style={s.iconBtnText}>🔗</RNText>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={s.iconBtn}
@@ -163,61 +162,49 @@ export default function HomeScreen({ navigation }: any) {
                     if (ok) inviteService.revoke(inv.id);
                   }}
                 >
-                  <Text style={s.iconBtnText}>🗑</Text>
+                  <RNText style={s.iconBtnText}>🗑</RNText>
                 </TouchableOpacity>
-              </View>
+              </Card>
             ))}
           </>
         )}
 
         {recent.length > 0 && (
           <>
-            <Text style={s.sectionLabel}>Recent Activity</Text>
+            <Text variant="sectionLabel">Recent Activity</Text>
             {recent.map((e, i) => (
-              <View key={i} style={s.activityRow}>
-                <Text style={s.activityIcon}>{e.icon}</Text>
+              <Card key={i} row radius={theme.radius.lg} padding={10} style={{ alignItems: 'flex-start', gap: 12, marginBottom: 6 }}>
+                <RNText style={s.activityIcon}>{e.icon}</RNText>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.activityText}>{e.text}</Text>
-                  <Text style={s.activityTime}>{new Date(e.ts).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</Text>
+                  <Text variant="body" style={{ fontSize: 13, lineHeight: 18 }}>{e.text}</Text>
+                  <Text variant="tiny" style={{ marginTop: 2 }}>
+                    {new Date(e.ts).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                  </Text>
                 </View>
-              </View>
+              </Card>
             ))}
           </>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: theme.colors.bg },
-  card: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: theme.colors.card, borderWidth: 1, borderColor: theme.colors.cardBorder, borderRadius: theme.radius.xl, padding: 14, marginBottom: 8 },
-  bigNum: { fontSize: 32, fontWeight: '900', minWidth: 50, textAlign: 'center' },
-  cardTitle: { color: theme.colors.text, fontWeight: '900', fontSize: 15 },
-  cardMeta: { color: theme.colors.muted, fontSize: 12, fontWeight: '700', marginTop: 2 },
-  arrow: { color: theme.colors.muted, fontSize: 22, fontWeight: '900' },
-  sectionLabel: { color: theme.colors.muted, fontSize: 11, fontWeight: '900', letterSpacing: 1.5, textTransform: 'uppercase', marginTop: 18, marginBottom: 10 },
   buddiesGrid: { flexDirection: 'row', gap: 10, marginBottom: 8 },
-  buddyCard: { flex: 1, backgroundColor: theme.colors.card, borderWidth: 1, borderColor: theme.colors.cardBorder, borderRadius: theme.radius.xl, padding: 14, alignItems: 'center' },
-  buddyAvatar: { position: 'relative', width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-  onlineDot: { position: 'absolute', bottom: 0, right: 0, width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: theme.colors.card },
-  attentionDot: { position: 'absolute', top: -4, right: -4, backgroundColor: theme.colors.danger, borderRadius: 10, minWidth: 20, height: 20, paddingHorizontal: 5, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: theme.colors.card },
-  attentionDotText: { color: '#fff', fontSize: 11, fontWeight: '900' },
-  buddyName: { color: theme.colors.text, fontWeight: '900', fontSize: 14 },
-  buddyMeta: { color: theme.colors.muted, fontSize: 11, fontWeight: '700', marginTop: 2 },
-  inviteRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#1e1c10', borderWidth: 1, borderColor: theme.colors.accent + '50', borderRadius: theme.radius.xl, padding: 12, marginBottom: 8 },
-  inviteAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: theme.colors.accent + '26', justifyContent: 'center', alignItems: 'center' },
+  buddyGridCard: {
+    flex: 1,
+    backgroundColor: theme.colors.card,
+    borderWidth: 1, borderColor: theme.colors.cardBorder,
+    borderRadius: theme.radius.xl,
+    padding: 14,
+    alignItems: 'center',
+  },
   inviteName: { color: theme.colors.accent, fontWeight: '900', fontSize: 14 },
   invitePill: { backgroundColor: theme.colors.accent + '33', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2 },
   invitePillText: { color: theme.colors.accent, fontSize: 10, fontWeight: '900' },
   inviteMeta: { color: '#b8932f', fontSize: 11, fontWeight: '700', marginTop: 2 },
   iconBtn: { width: 32, height: 32, borderWidth: 1, borderColor: theme.colors.cardBorder, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   iconBtnText: { fontSize: 14, color: theme.colors.accent },
-  emptyHint: { color: theme.colors.muted, fontSize: 13, fontWeight: '700', marginBottom: 8 },
-  addBtn: { padding: 14, borderWidth: 2, borderStyle: 'dashed', borderColor: theme.colors.cardBorder, borderRadius: theme.radius.xl, alignItems: 'center', marginTop: 6 },
-  addBtnText: { color: theme.colors.muted, fontWeight: '900', fontSize: 14 },
-  activityRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: theme.colors.card, borderWidth: 1, borderColor: theme.colors.cardBorder, borderRadius: theme.radius.lg, padding: 10, marginBottom: 6 },
   activityIcon: { fontSize: 16, width: 24, textAlign: 'center', paddingTop: 1 },
-  activityText: { color: theme.colors.text, fontSize: 13, fontWeight: '700', lineHeight: 18 },
-  activityTime: { color: theme.colors.muted, fontSize: 10, fontWeight: '700', marginTop: 2 },
 });

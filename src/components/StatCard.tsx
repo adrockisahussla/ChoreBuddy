@@ -20,7 +20,7 @@ export default function StatCard({ num, numColor, title, meta, onPress }: Props)
     <TouchableOpacity style={s.card} onPress={onPress} activeOpacity={0.85}>
       <Text style={[s.num, { color: numColor || theme.colors.blue }]}>{num}</Text>
       <View style={{ flex: 1 }}>
-        <Text variant="h3">{title}</Text>
+        <Text variant="h3" style={{ fontSize: 15 }}>{title}</Text>
         {!!meta && <Text variant="meta" style={{ marginTop: 2 }}>{meta}</Text>}
       </View>
       <Text style={s.arrow}>›</Text>
