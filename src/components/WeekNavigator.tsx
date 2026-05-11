@@ -3,7 +3,6 @@ import { View, TouchableOpacity, StyleSheet, Platform, Text as RNText } from 're
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { theme } from '../theme';
 import { currentWeek, shiftWeek, getWeekOf } from '../utils/week';
-import Text from './Text';
 
 interface Props {
   weekOf: string;
@@ -12,9 +11,15 @@ interface Props {
 
 /**
  * WeekNavigator: top-row widget for switching between ISO weeks.
- * - ← / → step prev/next
- * - Centre label shows "This week" or "Mar 10 – Mar 16"
- * - 📅 button opens a date picker; the picked date snaps to its week.
+ *
+ * Layout (option A):
+ *   row 1:  [← prev]   May 11 – 17   [next →]   [📅]
+ *   row 2:  "Past · tap to return to present"  (or "Current week", or
+ *           "Future · tap to return to present")
+ *
+ * Date label collapses to "May 11 – 17" when both endpoints are in the
+ * same month (drops the redundant second month name). Sublabel is its
+ * own row so it never has to share width with the date.
  */
 export default function WeekNavigator({ weekOf, onChange }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -31,30 +36,37 @@ export default function WeekNavigator({ weekOf, onChange }: Props) {
   };
 
   return (
-    <View style={s.row}>
-      <TouchableOpacity style={s.iconBtn} onPress={() => onChange(shiftWeek(weekOf, -1))} hitSlop={8}>
-        <RNText style={s.iconText}>←</RNText>
-      </TouchableOpacity>
-      <View style={s.label}>
-        <Text variant="h3" style={{ fontSize: 15, textAlign: 'center' }} numberOfLines={1}>{label}</Text>
-        {relation === 'current' ? (
-          <Text variant="tiny" style={{ fontSize: 10, color: theme.colors.muted, textAlign: 'center', marginTop: 2 }}>
-            current
-          </Text>
-        ) : (
-          <TouchableOpacity onPress={() => onChange(cur)}>
-            <Text style={s.subLink} numberOfLines={1}>
-              {relation === 'past' ? 'Past' : 'Future'} · return to present
-            </Text>
-          </TouchableOpacity>
-        )}
+    <View style={s.card}>
+      <View style={s.row}>
+        <TouchableOpacity style={s.arrow} onPress={() => onChange(shiftWeek(weekOf, -1))} hitSlop={8}>
+          <RNText style={s.arrowText}>←</RNText>
+        </TouchableOpacity>
+        <RNText
+          style={s.date}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
+        >
+          {label}
+        </RNText>
+        <TouchableOpacity style={s.arrow} onPress={() => onChange(shiftWeek(weekOf, 1))} hitSlop={8}>
+          <RNText style={s.arrowText}>→</RNText>
+        </TouchableOpacity>
+        <TouchableOpacity style={s.arrow} onPress={() => setPickerOpen(true)} hitSlop={8}>
+          <RNText style={s.calIcon}>📅</RNText>
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity style={s.iconBtn} onPress={() => onChange(shiftWeek(weekOf, 1))} hitSlop={8}>
-        <RNText style={s.iconText}>→</RNText>
-      </TouchableOpacity>
-      <TouchableOpacity style={s.calBtn} onPress={() => setPickerOpen(true)} hitSlop={8}>
-        <RNText style={s.calIcon}>📅</RNText>
-      </TouchableOpacity>
+
+      {relation === 'current' ? (
+        <RNText style={[s.sub, s.subMuted]}>Current week</RNText>
+      ) : (
+        <TouchableOpacity onPress={() => onChange(cur)}>
+          <RNText style={[s.sub, s.subLink]}>
+            {relation === 'past' ? 'Past' : 'Future'} · tap to return to present
+          </RNText>
+        </TouchableOpacity>
+      )}
+
       {pickerOpen && (
         <DateTimePicker
           value={new Date()}
@@ -67,8 +79,8 @@ export default function WeekNavigator({ weekOf, onChange }: Props) {
 }
 
 /**
- * Format weekOf as "Mar 10 – Mar 16". Falls back to the legacy
- * `fmtRange` shape if parsing fails.
+ * Format weekOf as "May 11 – 17" (same month) or "Apr 28 – May 4"
+ * (crossing months). Defensive fallback returns the raw weekOf string.
  */
 function weekRangeLabel(weekOf: string): string {
   try {
@@ -78,44 +90,57 @@ function weekRangeLabel(weekOf: string): string {
     const w1Mon = new Date(jan4); w1Mon.setUTCDate(jan4.getUTCDate() - jan4Day);
     const mon = new Date(w1Mon); mon.setUTCDate(w1Mon.getUTCDate() + (w - 1) * 7);
     const sun = new Date(mon); sun.setUTCDate(mon.getUTCDate() + 6);
-    const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
-    return `${fmt(mon)} – ${fmt(sun)}`;
+    const monLabel = mon.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+    if (mon.getUTCMonth() === sun.getUTCMonth()) {
+      // Same month — drop the redundant second month name.
+      const dayOnly = sun.toLocaleDateString(undefined, { day: 'numeric', timeZone: 'UTC' });
+      return `${monLabel} – ${dayOnly}`;
+    }
+    const sunLabel = sun.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+    return `${monLabel} – ${sunLabel}`;
   } catch {
     return weekOf;
   }
 }
 
 const s = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  card: {
     backgroundColor: theme.colors.card,
     borderWidth: 1,
     borderColor: theme.colors.cardBorder,
     borderRadius: theme.radius.lg,
-    padding: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     marginBottom: 12,
     ...theme.shadow.card,
   },
-  iconBtn: {
-    width: 40, height: 40, borderRadius: 20,
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  arrow: {
+    width: 32, height: 32, borderRadius: 16,
     backgroundColor: theme.colors.bg,
     justifyContent: 'center', alignItems: 'center',
   },
-  iconText: { color: theme.colors.text, fontSize: 22, fontWeight: '700' },
-  label: { flex: 1, justifyContent: 'center' },
-  calBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: theme.colors.bg,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  calIcon: { fontSize: 16 },
-  subLink: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: theme.colors.accent,
+  arrowText: { color: theme.colors.text, fontSize: 18, fontWeight: '700' },
+  calIcon: { fontSize: 14 },
+  date: {
+    flex: 1,
+    minWidth: 0,
     textAlign: 'center',
-    marginTop: 2,
+    fontSize: 15,
+    fontWeight: '700',
+    color: theme.colors.text,
+    paddingHorizontal: 4,
   },
+  sub: {
+    textAlign: 'center',
+    marginTop: 6,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  subMuted: { color: theme.colors.muted },
+  subLink: { color: theme.colors.accent },
 });
