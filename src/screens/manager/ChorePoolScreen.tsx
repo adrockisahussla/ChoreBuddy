@@ -223,36 +223,56 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
           ))}
         </View>
 
-        {recur === 'once' && (
-          <>
-            <Text variant="sectionLabel" style={{ marginTop: 16 }}>Due date</Text>
-            <TouchableOpacity style={s.fieldBtn} onPress={() => setDateSheetOpen(true)}>
-              <RNText style={s.fieldIcon}>📅</RNText>
-              <View style={{ flex: 1 }}>
-                <Text variant="h3" style={{ fontSize: 15 }}>
-                  {onceDate
-                    ? onceDate.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })
-                    : 'Pick a due date'}
-                </Text>
-                <Text variant="tiny" style={{ marginTop: 2 }}>
-                  {onceDate ? 'Tap to change' : 'Today, tomorrow, weekend, or pick'}
-                </Text>
+        {recur === 'once' && (() => {
+          // Compute the active preset for the dropdown label
+          const today = new Date(); today.setHours(0, 0, 0, 0);
+          const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+          const dayOfWeek = today.getDay();
+          const daysUntilSat = (6 - dayOfWeek + 7) % 7 || 7;
+          const thisSat = new Date(today); thisSat.setDate(today.getDate() + daysUntilSat);
+          const daysUntilNextMon = ((1 - dayOfWeek + 7) % 7) || 7;
+          const nextMon = new Date(today); nextMon.setDate(today.getDate() + daysUntilNextMon + (dayOfWeek === 1 ? 7 : 0));
+          const sameDay = (a: Date | null, b: Date) =>
+            !!a && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+          const top: { label: string; date: Date }[] = [
+            { label: 'Today', date: today },
+            { label: 'Tomorrow', date: tomorrow },
+            { label: thisSat.toLocaleDateString(undefined, { weekday: 'short' }), date: thisSat },
+            { label: 'Next Mon', date: nextMon },
+          ];
+          const activePreset = top.find(p => sameDay(onceDate, p.date));
+          const dropdownLabel = activePreset
+            ? activePreset.label
+            : onceDate
+              ? onceDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+              : 'Quick picks';
+          return (
+            <>
+              <Text variant="sectionLabel" style={{ marginTop: 16 }}>Due date</Text>
+              <View style={s.splitRow}>
+                <TouchableOpacity style={s.calendarBtn} onPress={() => setShowDatePicker(true)}>
+                  <RNText style={s.calendarIcon}>📅</RNText>
+                  <RNText style={s.calendarLabel}>Custom</RNText>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.dropdownBtn} onPress={() => setDateSheetOpen(true)}>
+                  <RNText style={s.dropdownLabel} numberOfLines={1}>{dropdownLabel}</RNText>
+                  <RNText style={s.dropdownChev}>▼</RNText>
+                </TouchableOpacity>
               </View>
-              <RNText style={s.fieldChev}>›</RNText>
-            </TouchableOpacity>
-            {showDatePicker && (
-              <DateTimePicker
-                value={onceDate || new Date()}
-                mode="date"
-                minimumDate={new Date()}
-                onChange={(e, sel) => {
-                  if (Platform.OS === 'android') setShowDatePicker(false);
-                  if (e.type === 'set' && sel) { setOnceDate(sel); setDateSheetOpen(false); }
-                }}
-              />
-            )}
-          </>
-        )}
+              {showDatePicker && (
+                <DateTimePicker
+                  value={onceDate || new Date()}
+                  mode="date"
+                  minimumDate={new Date()}
+                  onChange={(e, sel) => {
+                    if (Platform.OS === 'android') setShowDatePicker(false);
+                    if (e.type === 'set' && sel) { setOnceDate(sel); setDateSheetOpen(false); }
+                  }}
+                />
+              )}
+            </>
+          );
+        })()}
 
         <Text variant="sectionLabel" style={{ marginTop: 16 }}>Point value</Text>
         <View style={s.pillRow}>
@@ -395,6 +415,26 @@ const s = StyleSheet.create({
   fieldIcon: { fontSize: 22 },
   fieldChev: { color: theme.colors.muted, fontSize: 22, fontWeight: '700' },
   chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  splitRow: { flexDirection: 'row', gap: 8, marginTop: 6 },
+  calendarBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: theme.colors.card,
+    borderWidth: 1.5, borderColor: theme.colors.cardBorder,
+    borderRadius: theme.radius.lg,
+    paddingHorizontal: 14, paddingVertical: 12,
+  },
+  calendarIcon: { fontSize: 18 },
+  calendarLabel: { color: theme.colors.text, fontWeight: '700', fontSize: 14 },
+  dropdownBtn: {
+    flex: 1,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: theme.colors.card,
+    borderWidth: 1.5, borderColor: theme.colors.cardBorder,
+    borderRadius: theme.radius.lg,
+    paddingHorizontal: 14, paddingVertical: 12,
+  },
+  dropdownLabel: { flex: 1, color: theme.colors.text, fontWeight: '700', fontSize: 14 },
+  dropdownChev: { color: theme.colors.muted, fontSize: 12, fontWeight: '700', marginLeft: 6 },
   // Material 3 chip: 32dp tall, 14sp text, single-line, 8dp radius
   datePill: {
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8,

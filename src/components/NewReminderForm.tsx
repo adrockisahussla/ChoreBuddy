@@ -249,73 +249,97 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
             ))}
           </View>
 
-          {recur === 'once' && (
-            <>
-              <Text variant="sectionLabel" style={{ marginTop: 16 }}>Date</Text>
-              <TouchableOpacity style={s.fieldBtn} onPress={() => setDateSheetOpen(true)}>
-                <RNText style={s.fieldIcon}>📅</RNText>
-                <View style={{ flex: 1 }}>
-                  <Text variant="h3" style={{ fontSize: 15 }}>
-                    {onceDate
-                      ? onceDate.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })
-                      : 'Pick a date'}
-                  </Text>
-                  <Text variant="tiny" style={{ marginTop: 2 }}>
-                    {onceDate ? 'Tap to change' : 'Today, tomorrow, weekend, or pick'}
-                  </Text>
+          {recur === 'once' && (() => {
+            const activePreset = presets.find(p => sameDay(onceDate, p.date));
+            const dropdownLabel = activePreset
+              ? activePreset.label
+              : onceDate
+                ? onceDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                : 'Quick picks';
+            return (
+              <>
+                <Text variant="sectionLabel" style={{ marginTop: 16 }}>Date</Text>
+                <View style={s.splitRow}>
+                  <TouchableOpacity style={s.calendarBtn} onPress={() => setShowDatePicker(true)}>
+                    <RNText style={s.calendarIcon}>📅</RNText>
+                    <RNText style={s.calendarLabel}>Custom</RNText>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.dropdownBtn} onPress={() => setDateSheetOpen(true)}>
+                    <RNText style={s.dropdownLabel} numberOfLines={1}>{dropdownLabel}</RNText>
+                    <RNText style={s.dropdownChev}>▼</RNText>
+                  </TouchableOpacity>
                 </View>
-                <RNText style={s.fieldChev}>›</RNText>
-              </TouchableOpacity>
-              {showDatePicker && (
-                <DateTimePicker
-                  value={onceDate || new Date()}
-                  mode="date"
-                  minimumDate={new Date()}
-                  onChange={(e, sel) => {
-                    if (Platform.OS === 'android') setShowDatePicker(false);
-                    if (e.type === 'set' && sel) { setOnceDate(sel); setDateSheetOpen(false); }
-                  }}
-                />
-              )}
-            </>
-          )}
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={onceDate || new Date()}
+                    mode="date"
+                    minimumDate={new Date()}
+                    onChange={(e, sel) => {
+                      if (Platform.OS === 'android') setShowDatePicker(false);
+                      if (e.type === 'set' && sel) { setOnceDate(sel); setDateSheetOpen(false); }
+                    }}
+                  />
+                )}
+              </>
+            );
+          })()}
 
-          <Text variant="sectionLabel" style={{ marginTop: 16 }}>Time</Text>
-          <TouchableOpacity style={s.fieldBtn} onPress={() => setTimeSheetOpen(true)}>
-            <RNText style={s.fieldIcon}>🕒</RNText>
-            <View style={{ flex: 1 }}>
-              <Text variant="h3" style={{ fontSize: 15 }}>
-                {allDay
-                  ? 'All day'
-                  : time
-                    ? formatTime12h(time.h, time.m)
-                    : 'Pick a time'}
-              </Text>
-              <Text variant="tiny" style={{ marginTop: 2 }}>
-                {allDay || time ? 'Tap to change' : 'Morning, noon, after school…'}
-              </Text>
-            </View>
-            <RNText style={s.fieldChev}>›</RNText>
-          </TouchableOpacity>
-          {showTimePicker && (
-            <DateTimePicker
-              value={(() => {
-                const d = new Date();
-                if (time) { d.setHours(time.h, time.m, 0, 0); }
-                return d;
-              })()}
-              mode="time"
-              is24Hour={false}
-              onChange={(e, sel) => {
-                if (Platform.OS === 'android') setShowTimePicker(false);
-                if (e.type === 'set' && sel) {
-                  setAllDay(false);
-                  setTime({ h: sel.getHours(), m: sel.getMinutes() });
-                  setTimeSheetOpen(false);
-                }
-              }}
-            />
-          )}
+          {(() => {
+            const TIME_PRESETS: { label: string; h: number; m: number }[] = [
+              { label: 'Morning',      h: 8,  m: 0 },
+              { label: 'Noon',         h: 12, m: 0 },
+              { label: 'After school', h: 15, m: 30 },
+              { label: 'Dinner',       h: 18, m: 0 },
+              { label: 'Bedtime',      h: 20, m: 30 },
+            ];
+            const activePreset = !allDay && time
+              ? TIME_PRESETS.find(p => p.h === time.h && p.m === time.m)
+              : undefined;
+            const dropdownLabel = allDay
+              ? 'All day'
+              : activePreset
+                ? activePreset.label
+                : time
+                  ? formatTime12h(time.h, time.m)
+                  : 'Quick picks';
+            return (
+              <>
+                <Text variant="sectionLabel" style={{ marginTop: 16 }}>Time</Text>
+                <View style={s.splitRow}>
+                  <TouchableOpacity
+                    style={s.calendarBtn}
+                    onPress={() => { setAllDay(false); setShowTimePicker(true); }}
+                  >
+                    <RNText style={s.calendarIcon}>🕒</RNText>
+                    <RNText style={s.calendarLabel}>Custom</RNText>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.dropdownBtn} onPress={() => setTimeSheetOpen(true)}>
+                    <RNText style={s.dropdownLabel} numberOfLines={1}>{dropdownLabel}</RNText>
+                    <RNText style={s.dropdownChev}>▼</RNText>
+                  </TouchableOpacity>
+                </View>
+                {showTimePicker && (
+                  <DateTimePicker
+                    value={(() => {
+                      const d = new Date();
+                      if (time) { d.setHours(time.h, time.m, 0, 0); }
+                      return d;
+                    })()}
+                    mode="time"
+                    is24Hour={false}
+                    onChange={(e, sel) => {
+                      if (Platform.OS === 'android') setShowTimePicker(false);
+                      if (e.type === 'set' && sel) {
+                        setAllDay(false);
+                        setTime({ h: sel.getHours(), m: sel.getMinutes() });
+                        setTimeSheetOpen(false);
+                      }
+                    }}
+                  />
+                )}
+              </>
+            );
+          })()}
 
           <Text variant="sectionLabel" style={{ marginTop: 16 }}>Assign to</Text>
           <TouchableOpacity style={s.assignBtn} onPress={() => setPickerOpen(true)}>
@@ -386,12 +410,6 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
                     </TouchableOpacity>
                   );
                 })}
-                <TouchableOpacity
-                  style={[s.datePill, isCustomDate && s.datePillActive]}
-                  onPress={() => setShowDatePicker(true)}
-                >
-                  <RNText style={[s.datePillLabel, isCustomDate && { color: '#fff' }]}>📅 Custom</RNText>
-                </TouchableOpacity>
               </View>
             </Pressable>
           </Pressable>
@@ -431,12 +449,6 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
                         </TouchableOpacity>
                       );
                     })}
-                    <TouchableOpacity
-                      style={[s.datePill, isCustom && s.datePillActive]}
-                      onPress={() => { setAllDay(false); setShowTimePicker(true); }}
-                    >
-                      <RNText style={[s.datePillLabel, isCustom && { color: '#fff' }]}>🕒 Custom</RNText>
-                    </TouchableOpacity>
                     <TouchableOpacity
                       style={[s.datePill, allDay && s.datePillActive]}
                       onPress={() => { setAllDay(true); setTimeSheetOpen(false); }}
@@ -509,6 +521,28 @@ const s = StyleSheet.create({
   },
   fieldIcon: { fontSize: 22 },
   fieldChev: { color: theme.colors.muted, fontSize: 22, fontWeight: '700' },
+
+  // Split row: [calendar/clock Custom button]  [dropdown quick picks]
+  splitRow: { flexDirection: 'row', gap: 8, marginTop: 6 },
+  calendarBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: theme.colors.card,
+    borderWidth: 1.5, borderColor: theme.colors.cardBorder,
+    borderRadius: theme.radius.lg,
+    paddingHorizontal: 14, paddingVertical: 12,
+  },
+  calendarIcon: { fontSize: 18 },
+  calendarLabel: { color: theme.colors.text, fontWeight: '700', fontSize: 14 },
+  dropdownBtn: {
+    flex: 1,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: theme.colors.card,
+    borderWidth: 1.5, borderColor: theme.colors.cardBorder,
+    borderRadius: theme.radius.lg,
+    paddingHorizontal: 14, paddingVertical: 12,
+  },
+  dropdownLabel: { flex: 1, color: theme.colors.text, fontWeight: '700', fontSize: 14 },
+  dropdownChev: { color: theme.colors.muted, fontSize: 12, fontWeight: '700', marginLeft: 6 },
   chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   // Material 3 chip: 32dp tall, 14sp text, single-line, 8dp radius
   datePill: {
