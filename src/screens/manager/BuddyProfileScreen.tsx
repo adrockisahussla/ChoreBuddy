@@ -93,7 +93,7 @@ const s = StyleSheet.create({
   editBtn: {
     position: 'absolute',
     top: 12,
-    left: 12,
+    right: 12,
     width: 36,
     height: 36,
     borderRadius: 18,
