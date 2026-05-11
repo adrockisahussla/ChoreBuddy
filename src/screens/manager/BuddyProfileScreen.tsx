@@ -29,10 +29,10 @@ export default function BuddyProfileScreen({ route, navigation }: any) {
   const myReminders = reminders.filter(r => r.assignedTo === buddyUid).length;
 
   const QUICK = [
-    { label: 'Chores', icon: '✓', count: active, sub: overdue > 0 ? `${overdue} overdue` : 'active', onPress: () => navigation.navigate('BuddyChores', { kidId: buddyUid }) },
-    { label: 'Rewards', icon: '🎁', count: myRewards.length, sub: rewardsAttention > 0 ? `${rewardsAttention} pending` : 'set', onPress: () => navigation.navigate('BuddyRewards', { kidId: buddyUid }) },
-    { label: 'Reminders', icon: '🔔', count: myReminders, sub: 'upcoming', onPress: () => navigation.navigate('BuddyReminders', { kidId: buddyUid }) },
-    { label: 'Map', icon: '📍', count: null as any, sub: 'live', onPress: () => navigation.navigate('BuddyMap', { kidId: buddyUid }) },
+    { label: 'Chores',    count: active,            sub: overdue > 0 ? `${overdue} overdue` : 'active', onPress: () => navigation.navigate('BuddyChores',    { kidId: buddyUid }) },
+    { label: 'Rewards',   count: myRewards.length,  sub: rewardsAttention > 0 ? `${rewardsAttention} pending` : 'set', onPress: () => navigation.navigate('BuddyRewards',   { kidId: buddyUid }) },
+    { label: 'Alerts',    count: myReminders,       sub: 'upcoming',                                    onPress: () => navigation.navigate('BuddyReminders', { kidId: buddyUid }) },
+    { label: 'Map',       count: null as any,       sub: 'live',                                        onPress: () => navigation.navigate('BuddyMap',       { kidId: buddyUid }) },
   ];
 
   const accent = buddy?.accent || theme.colors.purple;
@@ -41,13 +41,19 @@ export default function BuddyProfileScreen({ route, navigation }: any) {
   return (
     <Screen contentStyle={{ padding: 0 }}>
       <Header title={`${name} · Profile`} onBackPress={() => navigation.goBack()} />
-      <ScrollView contentContainerStyle={{ padding: theme.spacing.lg }}>
-        <Card row padding={16} radius={theme.radius.xxl} style={{ gap: 16, marginBottom: 12 }}>
-          <Avatar emoji={buddy?.avatar || '👤'} accent={accent} size="lg" />
+      <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: 24 }}>
+        <Card row padding={14} radius={theme.radius.xl} style={{ gap: 14, marginBottom: 16 }}>
+          <Avatar emoji={buddy?.avatar || '👤'} accent={accent} size="md" />
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text variant="h2" style={{ fontSize: 22 }} numberOfLines={1}>{name}</Text>
-            {buddy?.email && <Text variant="meta" style={{ marginTop: 4, fontSize: 12 }} numberOfLines={1}>{buddy.email}</Text>}
-            <Text variant="meta" style={{ marginTop: 4, fontSize: 14, color: theme.colors.accent, fontWeight: '700' }}>★ {points} pts</Text>
+            <Text variant="h2" style={{ fontSize: 20 }} numberOfLines={1}>{name}</Text>
+            {buddy?.email && (
+              <Text variant="meta" style={{ marginTop: 2, fontSize: 12 }} numberOfLines={1}>
+                {buddy.email}
+              </Text>
+            )}
+            <Text style={{ marginTop: 4, fontSize: 14, color: theme.colors.accent, fontWeight: '700' }}>
+              ★ {points} pts
+            </Text>
           </View>
         </Card>
 
@@ -55,10 +61,13 @@ export default function BuddyProfileScreen({ route, navigation }: any) {
         <View style={s.quickGrid}>
           {QUICK.map(q => (
             <TouchableOpacity key={q.label} style={s.quickCard} onPress={q.onPress} activeOpacity={0.85}>
-              <Text style={s.quickIcon}>{q.icon}</Text>
-              <Text variant="body" style={{ fontSize: 13 }}>{q.label}</Text>
-              {q.count !== null && <Text style={s.quickCount}>{q.count}</Text>}
-              <Text variant="tiny" style={{ marginTop: 2 }}>{q.sub}</Text>
+              {q.count !== null ? (
+                <Text style={s.quickCount}>{q.count}</Text>
+              ) : (
+                <Text style={s.quickCount}>·</Text>
+              )}
+              <Text variant="body" style={{ fontSize: 14, fontWeight: '700', marginTop: 2 }} numberOfLines={1}>{q.label}</Text>
+              <Text variant="tiny" style={{ fontSize: 11, marginTop: 2 }} numberOfLines={1}>{q.sub}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -73,11 +82,10 @@ const s = StyleSheet.create({
     width: '48%',
     backgroundColor: theme.colors.card,
     borderWidth: 1, borderColor: theme.colors.cardBorder,
-    borderRadius: theme.radius.xl,
-    padding: 16,
-    alignItems: 'center',
+    borderRadius: theme.radius.lg,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     ...theme.shadow.card,
   },
-  quickIcon: { fontSize: 28, marginBottom: 6 },
-  quickCount: { color: theme.colors.accent, fontSize: 26, fontWeight: '700', marginTop: 4 },
+  quickCount: { color: theme.colors.accent, fontSize: 28, fontWeight: '700' },
 });

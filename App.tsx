@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import firestore from '@react-native-firebase/firestore';
 import { resetWeeklyChores } from './src/services/choreService';
 import { configureGoogleSignin } from './src/config/google';
@@ -19,16 +20,18 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <CurrentUserProvider>
-        <AuthGateway>
-          <SubmissionToasts />
-          <ConfirmProvider>
-            <NavigationContainer>
-              <DrawerNavigator />
-            </NavigationContainer>
-          </ConfirmProvider>
-        </AuthGateway>
-      </CurrentUserProvider>
+      <SafeAreaProvider>
+        <CurrentUserProvider>
+          <AuthGateway>
+            <SubmissionToasts />
+            <ConfirmProvider>
+              <NavigationContainer>
+                <DrawerNavigator />
+              </NavigationContainer>
+            </ConfirmProvider>
+          </AuthGateway>
+        </CurrentUserProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

@@ -1,5 +1,6 @@
 import React from 'react';
-import { SafeAreaView, ScrollView, View, ViewStyle, StyleSheet } from 'react-native';
+import { ScrollView, View, ViewStyle, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { theme } from '../theme';
 
@@ -12,8 +13,11 @@ interface Props {
 }
 
 /**
- * Screen wrapper: SafeAreaView with the app background. Optional ScrollView
- * (or KeyboardAwareScrollView) so screens don't keep redeclaring the pattern.
+ * Screen wrapper: SafeAreaView (from safe-area-context — Android-aware)
+ * with the app background, optional Scroll/KeyboardAware content.
+ *
+ * Top edge is implicit because Header sits above content; bottom edge
+ * adds padding for the Android system nav (the three-button bar).
  */
 export default function Screen({ children, scroll, keyboardAware, style, contentStyle }: Props) {
   const inner = (
@@ -32,7 +36,11 @@ export default function Screen({ children, scroll, keyboardAware, style, content
       <View style={[s.content, contentStyle]}>{children}</View>
     )
   );
-  return <SafeAreaView style={[s.root, style]}>{inner}</SafeAreaView>;
+  return (
+    <SafeAreaView style={[s.root, style]} edges={['bottom']}>
+      {inner}
+    </SafeAreaView>
+  );
 }
 
 const s = StyleSheet.create({
