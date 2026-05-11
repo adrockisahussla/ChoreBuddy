@@ -102,13 +102,11 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
   const [title, setTitle] = useState(initial?.title || '');
   const [recur, setRecur] = useState<Recurrence>(initial?.recurrence || 'weekly');
   const [points, setPoints] = useState<number>(initial?.points ?? POINTS_PER.weekly);
-  const [assignTo, setAssignTo] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [onceDate, setOnceDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const { buddies } = useBuddies();
   const familyId = useFamilyId();
-  const currentBuddy = buddies.find(b => b.uid === assignTo);
 
   const buildPool = (): Omit<ChorePoolItem, 'id' | 'createdAt'> => ({
     familyId: familyId || '',
@@ -133,15 +131,21 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
     if (!title.trim() || !familyId) return;
     if (editing) await chorePoolService.update(initial!.id, buildPool());
     else await chorePoolService.add(buildPool());
+    if (Platform.OS === 'android') {
+      ToastAndroid.show(
+        editing ? `✓ Updated "${title.trim()}" in pool` : `✓ Saved "${title.trim()}" to pool`,
+        ToastAndroid.SHORT,
+      );
+    }
     onClose();
   };
-  const saveAndAssign = async () => {
-    if (!title.trim() || !familyId || !assignTo) return;
+  const saveAndAssignTo = async (buddyUid: string) => {
+    if (!title.trim() || !familyId) return;
     if (editing) await chorePoolService.update(initial!.id, buildPool());
     else await chorePoolService.add(buildPool());
-    await choreService.add(buildAssigned(assignTo));
+    await choreService.add(buildAssigned(buddyUid));
     if (Platform.OS === 'android') {
-      const buddy = buddies.find(b => b.uid === assignTo);
+      const buddy = buddies.find(b => b.uid === buddyUid);
       ToastAndroid.show(`✓ Assigned "${title.trim()}" to ${buddy?.displayName ?? 'buddy'}`, ToastAndroid.SHORT);
     }
     onClose();
@@ -213,24 +217,67 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
           ))}
         </View>
 
-        {recur === 'once' && (
-          <>
-            <Text style={s.fieldLabel}>Due date</Text>
-            <TouchableOpacity style={s.dateBtn} onPress={() => setShowDatePicker(true)}>
-              <Text style={[s.dateBtnText, !onceDate && s.dateBtnPlaceholder]}>
-                {onceDate ? onceDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : 'Tap to choose a date'}
-              </Text>
-            </TouchableOpacity>
-            {showDatePicker && (
-              <DateTimePicker
-                value={onceDate || new Date()}
-                mode="date"
-                minimumDate={new Date()}
-                onChange={onDateChange}
-              />
-            )}
-          </>
-        )}
+        {recur === 'once' && (() => {
+          const today = new Date(); today.setHours(0, 0, 0, 0);
+          const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+          const dayOfWeek = today.getDay(); // 0=Sun..6=Sat
+          const daysUntilSat = (6 - dayOfWeek + 7) % 7 || 7;
+          const thisSat = new Date(today); thisSat.setDate(today.getDate() + daysUntilSat);
+          const daysUntilNextMon = ((1 - dayOfWeek + 7) % 7) || 7;
+          const nextMon = new Date(today); nextMon.setDate(today.getDate() + daysUntilNextMon + (dayOfWeek === 1 ? 7 : 0));
+          const sameDay = (a: Date | null, b: Date) => !!a && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+          const presets: { label: string; date: Date }[] = [
+            { label: 'Today', date: today },
+            { label: 'Tomorrow', date: tomorrow },
+            { label: thisSat.toLocaleDateString(undefined, { weekday: 'short' }), date: thisSat },
+            { label: 'Next Mon', date: nextMon },
+          ];
+          const isCustom = onceDate && !presets.some(p => sameDay(onceDate, p.date));
+          return (
+            <>
+              <Text style={s.fieldLabel}>Due date</Text>
+              <View style={s.pillRow}>
+                {presets.map(p => {
+                  const active = sameDay(onceDate, p.date);
+                  return (
+                    <TouchableOpacity
+                      key={p.label}
+                      style={[s.datePill, active && s.pillActive]}
+                      onPress={() => setOnceDate(p.date)}
+                    >
+                      <Text style={[s.datePillLabel, active && s.pillTextActive]}>{p.label}</Text>
+                      <Text style={[s.datePillSub, active && { color: '#000', opacity: 0.7 }]}>
+                        {p.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+                <TouchableOpacity
+                  style={[s.datePill, isCustom && s.pillActive]}
+                  onPress={() => setShowDatePicker(true)}
+                >
+                  <Text style={[s.datePillLabel, isCustom && s.pillTextActive]}>📅 Pick</Text>
+                  <Text style={[s.datePillSub, isCustom && { color: '#000', opacity: 0.7 }]}>
+                    {isCustom ? onceDate!.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'a date'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              {onceDate && (
+                <Text style={s.dateConfirm}>
+                  ✓ Due {onceDate.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
+                </Text>
+              )}
+              {showDatePicker && (
+                <DateTimePicker
+                  value={onceDate || new Date()}
+                  mode="date"
+                  minimumDate={new Date()}
+                  onChange={onDateChange}
+                />
+              )}
+            </>
+          );
+        })()}
 
         <Text style={s.fieldLabel}>Point value</Text>
         <View style={s.pillRow}>
@@ -241,67 +288,33 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
           ))}
         </View>
 
-        <Text style={s.fieldLabel}>Assigned to</Text>
-        <TouchableOpacity style={s.assignBtn} onPress={() => setPickerOpen(true)}>
-          {currentBuddy ? (
-            <>
-              <View style={[s.assignAvatar, { backgroundColor: (currentBuddy.accent || theme.colors.purple) + '40' }]}>
-                <Text style={{ fontSize: 22 }}>{currentBuddy.avatar || '👤'}</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.assignName}>{currentBuddy.displayName}</Text>
-                <Text style={s.assignSubtle}>Tap to change</Text>
-              </View>
-            </>
-          ) : (
-            <>
-              <View style={[s.assignAvatar, { backgroundColor: theme.colors.bg }]}>
-                <Text style={{ fontSize: 22 }}>👤</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.assignName}>No one (save to pool only)</Text>
-                <Text style={s.assignSubtle}>Tap to assign a buddy</Text>
-              </View>
-            </>
-          )}
-          <Text style={s.assignChevron}>›</Text>
-        </TouchableOpacity>
-
-      </KeyboardAwareScrollView>
-
-      <View style={s.formFooter}>
-        {assignTo ? (
-          <>
+        <View style={s.formFooter}>
+          <View style={s.footerRow}>
             <TouchableOpacity
-              style={[s.primaryBtnBig, !canSave && s.btnDisabled]}
-              disabled={!canSave}
-              onPress={saveAndAssign}
-            >
-              <Text style={s.primaryBtnBigText}>Save & Assign</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[s.secondaryBtn, !canSave && s.btnDisabled]}
+              style={[s.footerBtn, s.footerBtnSecondary, !canSave && s.btnDisabled]}
               disabled={!canSave}
               onPress={savePoolOnly}
             >
-              <Text style={s.secondaryBtnText}>Save to Pool only (don't assign)</Text>
+              <Text style={s.footerBtnSecondaryText}>Save</Text>
+              <Text style={s.footerBtnSubtext}>Pool only</Text>
             </TouchableOpacity>
-          </>
-        ) : (
-          <TouchableOpacity
-            style={[s.primaryBtnBig, !canSave && s.btnDisabled]}
-            disabled={!canSave}
-            onPress={savePoolOnly}
-          >
-            <Text style={s.primaryBtnBigText}>Save to Pool</Text>
-          </TouchableOpacity>
-        )}
-        {editing && (
-          <TouchableOpacity onPress={del} style={s.deleteFooterBtn}>
-            <Text style={s.deleteFooterText}>🗑 Delete chore</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+            <TouchableOpacity
+              style={[s.footerBtn, s.footerBtnPrimary, (!canSave || buddies.length === 0) && s.btnDisabled]}
+              disabled={!canSave || buddies.length === 0}
+              onPress={() => setPickerOpen(true)}
+            >
+              <Text style={s.footerBtnPrimaryText}>Save & Assign</Text>
+              <Text style={[s.footerBtnSubtext, { color: '#000', opacity: 0.7 }]}>{buddies.length === 0 ? 'No buddies' : 'Pick a buddy →'}</Text>
+            </TouchableOpacity>
+          </View>
+          {editing && (
+            <TouchableOpacity onPress={del} style={s.deleteFooterBtn}>
+              <Text style={s.deleteFooterText}>🗑 Delete chore</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+      </KeyboardAwareScrollView>
 
       <Modal
         visible={pickerOpen}
@@ -316,31 +329,19 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
             {buddies.length === 0 ? (
               <Text style={s.assignEmpty}>No buddies yet — invite one first.</Text>
             ) : (
-              <>
+              buddies.map(b => (
                 <TouchableOpacity
-                  style={[s.sheetRow, !assignTo && s.sheetRowActive]}
-                  onPress={() => { setAssignTo(null); setPickerOpen(false); }}
+                  key={b.uid}
+                  style={s.sheetRow}
+                  onPress={() => { setPickerOpen(false); saveAndAssignTo(b.uid); }}
                 >
-                  <View style={[s.sheetAvatar, { backgroundColor: theme.colors.bg }]}>
-                    <Text style={{ fontSize: 22 }}>—</Text>
+                  <View style={[s.sheetAvatar, { backgroundColor: (b.accent || theme.colors.purple) + '40' }]}>
+                    <Text style={{ fontSize: 22 }}>{b.avatar || '👤'}</Text>
                   </View>
-                  <Text style={s.sheetRowName}>No one (pool only)</Text>
-                  {!assignTo && <Text style={s.sheetCheck}>✓</Text>}
+                  <Text style={s.sheetRowName}>{b.displayName}</Text>
+                  <Text style={s.sheetCheck}>›</Text>
                 </TouchableOpacity>
-                {buddies.map(b => (
-                  <TouchableOpacity
-                    key={b.uid}
-                    style={[s.sheetRow, assignTo === b.uid && s.sheetRowActive]}
-                    onPress={() => { setAssignTo(b.uid); setPickerOpen(false); }}
-                  >
-                    <View style={[s.sheetAvatar, { backgroundColor: (b.accent || theme.colors.purple) + '40' }]}>
-                      <Text style={{ fontSize: 22 }}>{b.avatar || '👤'}</Text>
-                    </View>
-                    <Text style={s.sheetRowName}>{b.displayName}</Text>
-                    {assignTo === b.uid && <Text style={s.sheetCheck}>✓</Text>}
-                  </TouchableOpacity>
-                ))}
-              </>
+              ))
             )}
           </Pressable>
         </Pressable>
@@ -380,6 +381,10 @@ const s = StyleSheet.create({
   dateBtn: { backgroundColor: theme.colors.card, borderWidth: 1.5, borderColor: theme.colors.cardBorder, borderRadius: theme.radius.lg, padding: 16 },
   dateBtnText: { color: theme.colors.text, fontSize: 17, fontWeight: '600' },
   dateBtnPlaceholder: { color: theme.colors.muted, fontWeight: '500' },
+  datePill: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14, borderWidth: 1.5, borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.card, alignItems: 'center', minWidth: 70 },
+  datePillLabel: { color: theme.colors.text, fontWeight: '900', fontSize: 13 },
+  datePillSub: { color: theme.colors.muted, fontSize: 10, fontWeight: '700', marginTop: 2 },
+  dateConfirm: { color: theme.colors.accent, fontSize: 13, fontWeight: '900', marginTop: 10 },
   pillRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'center' },
   pill: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 22, borderWidth: 1.5, borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.card },
   smallPill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.card, minWidth: 40, alignItems: 'center' },
@@ -407,12 +412,22 @@ const s = StyleSheet.create({
   sheetRowName: { color: theme.colors.text, fontWeight: '900', fontSize: 15, flex: 1 },
   sheetCheck: { color: theme.colors.accent, fontWeight: '900', fontSize: 18 },
 
-  formFooter: { padding: 16, borderTopWidth: 1, borderTopColor: theme.colors.cardBorder, backgroundColor: theme.colors.bg, gap: 8 },
+  formFooter: { paddingTop: 24, gap: 10 },
+  footerRow: { flexDirection: 'row', gap: 10 },
+  footerBtn: { flex: 1, padding: 14, borderRadius: theme.radius.lg, alignItems: 'center', justifyContent: 'center', minHeight: 64 },
+  footerBtnPrimary: { backgroundColor: theme.colors.accent },
+  footerBtnPrimaryText: { color: '#000', fontWeight: '900', fontSize: 15 },
+  footerBtnSecondary: { backgroundColor: theme.colors.card, borderWidth: 1.5, borderColor: theme.colors.cardBorder },
+  footerBtnSecondaryText: { color: theme.colors.text, fontWeight: '900', fontSize: 15 },
+  footerBtnSubtext: { fontSize: 11, fontWeight: '700', color: theme.colors.muted, marginTop: 2 },
   primaryBtnBig: { backgroundColor: theme.colors.accent, padding: 16, borderRadius: theme.radius.lg, alignItems: 'center' },
   primaryBtnBigText: { color: '#000', fontWeight: '900', fontSize: 16 },
   secondaryBtn: { padding: 12, borderRadius: theme.radius.lg, alignItems: 'center' },
   secondaryBtnText: { color: theme.colors.muted, fontWeight: '700', fontSize: 13 },
   btnDisabled: { opacity: 0.4 },
+  assignNameMuted: { color: theme.colors.muted, fontWeight: '900', fontSize: 15 },
+  clearAssignBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: theme.colors.bg, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: theme.colors.cardBorder },
+  clearAssignText: { color: theme.colors.muted, fontSize: 14, fontWeight: '900' },
   delLink: { color: theme.colors.danger, fontWeight: '700', fontSize: 13, textAlign: 'center', padding: 10 },
   deleteFooterBtn: { padding: 12, borderRadius: theme.radius.lg, alignItems: 'center', borderWidth: 1.5, borderColor: theme.colors.danger + '80', marginTop: 4 },
   deleteFooterText: { color: theme.colors.danger, fontWeight: '900', fontSize: 14 },

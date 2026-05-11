@@ -8,6 +8,7 @@ import AuthGateway from './src/AuthGateway';
 import DrawerNavigator from './src/navigation/DrawerNavigator';
 import { ConfirmProvider } from './src/components/ConfirmModal';
 import SubmissionToasts from './src/components/SubmissionToasts';
+import { CurrentUserProvider } from './src/hooks/useCurrentUser';
 
 configureGoogleSignin();
 
@@ -18,14 +19,16 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <AuthGateway>
-        <SubmissionToasts />
-        <ConfirmProvider>
-          <NavigationContainer>
-            <DrawerNavigator />
-          </NavigationContainer>
-        </ConfirmProvider>
-      </AuthGateway>
+      <CurrentUserProvider>
+        <AuthGateway>
+          <SubmissionToasts />
+          <ConfirmProvider>
+            <NavigationContainer>
+              <DrawerNavigator />
+            </NavigationContainer>
+          </ConfirmProvider>
+        </AuthGateway>
+      </CurrentUserProvider>
     </GestureHandlerRootView>
   );
 }
