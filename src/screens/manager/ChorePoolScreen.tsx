@@ -104,7 +104,6 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
   const [recur, setRecur] = useState<Recurrence>(initial?.recurrence || 'weekly');
   const [points, setPoints] = useState<number>(initial?.points ?? POINTS_PER.weekly);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [dateSheetOpen, setDateSheetOpen] = useState(false);
   const [onceDate, setOnceDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const { buddies } = useBuddies();
@@ -224,7 +223,6 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
         </View>
 
         {recur === 'once' && (() => {
-          // Compute the active preset for the dropdown label
           const today = new Date(); today.setHours(0, 0, 0, 0);
           const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
           const dayOfWeek = today.getDay();
@@ -234,29 +232,38 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
           const nextMon = new Date(today); nextMon.setDate(today.getDate() + daysUntilNextMon + (dayOfWeek === 1 ? 7 : 0));
           const sameDay = (a: Date | null, b: Date) =>
             !!a && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-          const top: { label: string; date: Date }[] = [
+          const dpresets: { label: string; date: Date }[] = [
             { label: 'Today', date: today },
             { label: 'Tomorrow', date: tomorrow },
             { label: thisSat.toLocaleDateString(undefined, { weekday: 'short' }), date: thisSat },
             { label: 'Next Mon', date: nextMon },
           ];
-          const activePreset = top.find(p => sameDay(onceDate, p.date));
-          const dropdownLabel = activePreset
-            ? activePreset.label
-            : onceDate
-              ? onceDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-              : 'Quick picks';
+          const isCustom = onceDate && !dpresets.some(p => sameDay(onceDate, p.date));
           return (
             <>
               <Text variant="sectionLabel" style={{ marginTop: 16 }}>Due date</Text>
-              <View style={s.splitRow}>
-                <TouchableOpacity style={s.calendarBtn} onPress={() => setShowDatePicker(true)}>
-                  <RNText style={s.calendarIcon}>📅</RNText>
-                  <RNText style={s.calendarLabel}>Custom</RNText>
-                </TouchableOpacity>
-                <TouchableOpacity style={s.dropdownBtn} onPress={() => setDateSheetOpen(true)}>
-                  <RNText style={s.dropdownLabel} numberOfLines={1}>{dropdownLabel}</RNText>
-                  <RNText style={s.dropdownChev}>▼</RNText>
+              <View style={s.chipGrid}>
+                {dpresets.map(p => {
+                  const active = sameDay(onceDate, p.date);
+                  return (
+                    <TouchableOpacity
+                      key={p.label}
+                      style={[s.datePill, active && s.datePillActive]}
+                      onPress={() => setOnceDate(p.date)}
+                    >
+                      <RNText style={[s.datePillLabel, active && { color: '#fff' }]}>{p.label}</RNText>
+                    </TouchableOpacity>
+                  );
+                })}
+                <TouchableOpacity
+                  style={[s.datePill, isCustom && s.datePillActive]}
+                  onPress={() => setShowDatePicker(true)}
+                >
+                  <RNText style={[s.datePillLabel, isCustom && { color: '#fff' }]}>
+                    📅 {isCustom && onceDate
+                      ? onceDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                      : 'Custom'}
+                  </RNText>
                 </TouchableOpacity>
               </View>
               {showDatePicker && (
@@ -266,7 +273,7 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
                   minimumDate={new Date()}
                   onChange={(e, sel) => {
                     if (Platform.OS === 'android') setShowDatePicker(false);
-                    if (e.type === 'set' && sel) { setOnceDate(sel); setDateSheetOpen(false); }
+                    if (e.type === 'set' && sel) setOnceDate(sel);
                   }}
                 />
               )}
@@ -305,60 +312,6 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
           )}
         </View>
       </KeyboardAwareScrollView>
-
-      {/* Date bottom-sheet — chip presets + Custom */}
-      <Modal
-        visible={dateSheetOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setDateSheetOpen(false)}
-      >
-        <Pressable style={s.sheetBackdrop} onPress={() => setDateSheetOpen(false)}>
-          <Pressable style={s.sheetCard} onPress={() => {}}>
-            <View style={s.sheetHandle} />
-            <Text variant="sectionLabel" style={{ marginTop: 0, marginBottom: 12 }}>Pick a date</Text>
-            {(() => {
-              const today = new Date(); today.setHours(0, 0, 0, 0);
-              const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-              const dayOfWeek = today.getDay();
-              const daysUntilSat = (6 - dayOfWeek + 7) % 7 || 7;
-              const thisSat = new Date(today); thisSat.setDate(today.getDate() + daysUntilSat);
-              const daysUntilNextMon = ((1 - dayOfWeek + 7) % 7) || 7;
-              const nextMon = new Date(today); nextMon.setDate(today.getDate() + daysUntilNextMon + (dayOfWeek === 1 ? 7 : 0));
-              const sameDay = (a: Date | null, b: Date) => !!a && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-              const dpresets: { label: string; date: Date }[] = [
-                { label: 'Today', date: today },
-                { label: 'Tomorrow', date: tomorrow },
-                { label: thisSat.toLocaleDateString(undefined, { weekday: 'short' }), date: thisSat },
-                { label: 'Next Mon', date: nextMon },
-              ];
-              const isCustom = onceDate && !dpresets.some(p => sameDay(onceDate, p.date));
-              return (
-                <View style={s.chipGrid}>
-                  {dpresets.map(p => {
-                    const active = sameDay(onceDate, p.date);
-                    return (
-                      <TouchableOpacity
-                        key={p.label}
-                        style={[s.datePill, active && s.datePillActive]}
-                        onPress={() => { setOnceDate(p.date); setDateSheetOpen(false); }}
-                      >
-                        <RNText style={[s.datePillLabel, active && { color: '#fff' }]}>{p.label}</RNText>
-                      </TouchableOpacity>
-                    );
-                  })}
-                  <TouchableOpacity
-                    style={[s.datePill, isCustom && s.datePillActive]}
-                    onPress={() => setShowDatePicker(true)}
-                  >
-                    <RNText style={[s.datePillLabel, isCustom && { color: '#fff' }]}>📅 Custom</RNText>
-                  </TouchableOpacity>
-                </View>
-              );
-            })()}
-          </Pressable>
-        </Pressable>
-      </Modal>
 
       <Modal
         visible={pickerOpen}
