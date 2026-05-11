@@ -18,8 +18,10 @@ interface Props {
  */
 export default function WeekNavigator({ weekOf, onChange }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
-  const isCurrent = weekOf === currentWeek();
-  const label = isCurrent ? 'This week' : weekRangeLabel(weekOf);
+  const cur = currentWeek();
+  const relation: 'past' | 'current' | 'future' =
+    weekOf === cur ? 'current' : weekOf < cur ? 'past' : 'future';
+  const label = weekRangeLabel(weekOf);
 
   const onDateChange = (event: DateTimePickerEvent, selected?: Date) => {
     if (Platform.OS === 'android') setPickerOpen(false);
@@ -34,11 +36,15 @@ export default function WeekNavigator({ weekOf, onChange }: Props) {
         <RNText style={s.iconText}>←</RNText>
       </TouchableOpacity>
       <View style={s.label}>
-        <Text variant="h3" style={{ fontSize: 16, textAlign: 'center' }} numberOfLines={1}>{label}</Text>
-        {!isCurrent && (
-          <TouchableOpacity onPress={() => onChange(currentWeek())}>
-            <Text variant="tiny" style={{ color: theme.colors.accent, fontWeight: '700', textAlign: 'center', marginTop: 2 }}>
-              Jump to today
+        <Text variant="h3" style={{ fontSize: 15, textAlign: 'center' }} numberOfLines={1}>{label}</Text>
+        {relation === 'current' ? (
+          <Text variant="tiny" style={{ fontSize: 10, color: theme.colors.muted, textAlign: 'center', marginTop: 2 }}>
+            current
+          </Text>
+        ) : (
+          <TouchableOpacity onPress={() => onChange(cur)}>
+            <Text style={s.subLink} numberOfLines={1}>
+              {relation === 'past' ? 'Past' : 'Future'} · return to present
             </Text>
           </TouchableOpacity>
         )}
@@ -105,4 +111,11 @@ const s = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
   },
   calIcon: { fontSize: 16 },
+  subLink: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: theme.colors.accent,
+    textAlign: 'center',
+    marginTop: 2,
+  },
 });
