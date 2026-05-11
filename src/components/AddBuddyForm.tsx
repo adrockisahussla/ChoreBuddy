@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, TouchableOpacity, TextInput, StyleSheet, Alert, Modal, ScrollView, SafeAreaView, Platform, ToastAndroid, Text as RNText } from 'react-native';
 import { theme } from '../theme';
 import { inviteService } from '../services/inviteService';
+import { userService } from '../services/userService';
 import { useFamilyId } from '../hooks/useFamilyId';
-import { Role } from '../types';
+import { Role, User } from '../types';
 import Pill from './Pill';
 import Button from './Button';
 import Text from './Text';
@@ -14,17 +15,20 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 interface Props {
   visible: boolean;
   onClose: () => void;
+  /** When provided, the form is in EDIT mode for this existing buddy. */
+  buddy?: User;
 }
 
 /**
- * AddBuddyForm: full-screen modal that creates a buddy invite.
+ * AddBuddyForm: full-screen modal that either:
+ *  - Invites a new buddy (no `buddy` prop) — writes an invite doc
+ *  - Edits an existing buddy (with `buddy`) — patches the user doc
  *
- * - Back arrow at top-left cancels (no invite written).
- * - Send Invite creates the invite doc (status="pending") and dismisses.
- * - The pending invite then surfaces in BuddiesScreen's
- *   "Pending Invites" section automatically (Firestore subscription).
+ * Email field is read-only in edit mode (email is tied to auth identity
+ * and changing it would break the buddy's sign-in).
  */
-export default function AddBuddyForm({ visible, onClose }: Props) {
+export default function AddBuddyForm({ visible, onClose, buddy }: Props) {
+  const isEdit = !!buddy;
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<Role>('buddy');
@@ -33,16 +37,30 @@ export default function AddBuddyForm({ visible, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const familyId = useFamilyId();
 
+  // Hydrate when entering edit mode
+  useEffect(() => {
+    if (visible && buddy) {
+      setName(buddy.displayName || '');
+      setEmail(buddy.email || '');
+      setRole(buddy.role || 'buddy');
+      setAvatar(buddy.avatar || AVATARS[0]);
+      setShowAvatars(false);
+      setLoading(false);
+    }
+  }, [visible, buddy]);
+
   const emailValid = EMAIL_RE.test(email.trim());
-  const canSubmit = !!name.trim() && emailValid && !!familyId;
+  const canSubmit = isEdit
+    ? !!name.trim() && !loading
+    : !!name.trim() && emailValid && !!familyId && !loading;
 
   const reset = () => {
     setName(''); setEmail(''); setRole('buddy'); setAvatar(AVATARS[0]);
     setShowAvatars(false); setLoading(false);
   };
-  const close = () => { reset(); onClose(); };
+  const close = () => { if (!isEdit) reset(); onClose(); };
 
-  const submit = async () => {
+  const submitInvite = async () => {
     if (!canSubmit || !familyId) return;
     setLoading(true);
     try {
@@ -68,6 +86,31 @@ export default function AddBuddyForm({ visible, onClose }: Props) {
     }
   };
 
+  const submitEdit = async () => {
+    if (!canSubmit || !buddy) return;
+    setLoading(true);
+    try {
+      await userService.update(buddy.id, {
+        displayName: name.trim(),
+        role,
+        avatar,
+      });
+      if (Platform.OS === 'android') {
+        ToastAndroid.show(`✓ Updated ${name.trim()}`, ToastAndroid.SHORT);
+      }
+      close();
+    } catch (e: any) {
+      Alert.alert('Failed', e?.message || String(e));
+      setLoading(false);
+    }
+  };
+
+  const submit = isEdit ? submitEdit : submitInvite;
+  const submitLabel = loading
+    ? (isEdit ? 'Saving...' : 'Sending...')
+    : (isEdit ? 'Save Changes' : 'Send Invite');
+  const headerTitle = isEdit ? `Edit ${buddy?.displayName || 'Buddy'}` : 'Add a Buddy';
+
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={close}>
       <SafeAreaView style={s.root}>
@@ -75,7 +118,7 @@ export default function AddBuddyForm({ visible, onClose }: Props) {
           <TouchableOpacity onPress={close} style={s.backBtn} hitSlop={10}>
             <RNText style={s.backText}>←</RNText>
           </TouchableOpacity>
-          <RNText style={s.title}>Add a Buddy</RNText>
+          <RNText style={s.title} numberOfLines={1}>{headerTitle}</RNText>
           <View style={s.backBtn} />
         </View>
 
@@ -121,28 +164,37 @@ export default function AddBuddyForm({ visible, onClose }: Props) {
 
           <Text variant="sectionLabel" style={{ marginTop: 16 }}>Email</Text>
           <TextInput
-            style={s.input}
+            style={[s.input, isEdit && s.inputDisabled]}
             value={email}
-            onChangeText={setEmail}
+            onChangeText={isEdit ? undefined : setEmail}
+            editable={!isEdit}
             placeholder="alex@example.com"
             placeholderTextColor={theme.colors.muted}
             autoCapitalize="none"
             keyboardType="email-address"
             autoCorrect={false}
           />
+          {isEdit && (
+            <Text variant="tiny" style={{ marginTop: 6 }}>
+              Email is locked — it's how the buddy signs in. To change it,
+              revoke and re-invite.
+            </Text>
+          )}
 
-          <Text variant="tiny" style={{ marginTop: 16, lineHeight: 18 }}>
-            They'll get an email with a link to sign in. Until they accept and install
-            the app, they'll show as <Text style={{ color: theme.colors.accent, fontWeight: '700' }}>Pending</Text> on
-            your Buddies page.
-          </Text>
+          {!isEdit && (
+            <Text variant="tiny" style={{ marginTop: 16, lineHeight: 18 }}>
+              They'll get an email with a link to sign in. Until they accept and install
+              the app, they'll show as <Text style={{ color: theme.colors.accent, fontWeight: '700' }}>Pending</Text> on
+              your Buddies page.
+            </Text>
+          )}
 
           <View style={{ marginTop: 24 }}>
             <Button
-              label={loading ? 'Sending...' : 'Send Invite'}
+              label={submitLabel}
               variant="primary"
               onPress={submit}
-              disabled={!canSubmit || loading}
+              disabled={!canSubmit}
               full
             />
           </View>
@@ -195,5 +247,9 @@ const s = StyleSheet.create({
     borderWidth: 1.5, borderColor: theme.colors.cardBorder,
     borderRadius: theme.radius.lg,
     padding: 14, fontSize: 16, marginTop: 6,
+  },
+  inputDisabled: {
+    backgroundColor: theme.colors.bg,
+    color: theme.colors.muted,
   },
 });

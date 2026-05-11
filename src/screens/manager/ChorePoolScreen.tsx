@@ -52,9 +52,13 @@ export default function ChorePoolScreen({ navigation }: any) {
           </Text>
         </Card>
 
-        <TouchableOpacity style={s.addBtn} onPress={openNew} activeOpacity={0.85}>
-          <RNText style={s.addBtnText}>+ New Chore</RNText>
-        </TouchableOpacity>
+        <Button
+          label="+ New Chore"
+          variant="primary"
+          onPress={openNew}
+          full
+          style={{ marginBottom: 12 }}
+        />
 
         {chorePool.length === 0 ? (
           <Text variant="empty" style={{ padding: 30 }}>Your pool is empty. Tap "+ New Chore" to add one.</Text>
@@ -340,9 +344,6 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
 }
 
 const s = StyleSheet.create({
-  addBtn: { padding: 14, borderWidth: 2, borderStyle: 'dashed', borderColor: theme.colors.accent, borderRadius: theme.radius.xl, alignItems: 'center', marginBottom: 12 },
-  addBtnText: { color: theme.colors.accent, fontWeight: '900', fontSize: 14 },
-
   cardMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12 },
   fullCover: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.colors.bg, zIndex: 100, elevation: 100 },
   starIcon: { width: 32, height: 32, borderRadius: 16, borderWidth: 2, borderColor: theme.colors.accent, justifyContent: 'center', alignItems: 'center' },
