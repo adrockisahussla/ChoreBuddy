@@ -324,9 +324,6 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
                         onPress={() => { setOnceDate(p.date); setDateSheetOpen(false); }}
                       >
                         <RNText style={[s.datePillLabel, active && { color: '#fff' }]}>{p.label}</RNText>
-                        <RNText style={[s.datePillSub, active && { color: '#fff', opacity: 0.85 }]}>
-                          {p.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                        </RNText>
                       </TouchableOpacity>
                     );
                   })}
@@ -335,9 +332,6 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
                     onPress={() => setShowDatePicker(true)}
                   >
                     <RNText style={[s.datePillLabel, isCustom && { color: '#fff' }]}>📅 Custom</RNText>
-                    <RNText style={[s.datePillSub, isCustom && { color: '#fff', opacity: 0.85 }]}>
-                      {isCustom ? onceDate!.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'pick day'}
-                    </RNText>
                   </TouchableOpacity>
                 </View>
               );
@@ -401,10 +395,18 @@ const s = StyleSheet.create({
   fieldIcon: { fontSize: 22 },
   fieldChev: { color: theme.colors.muted, fontSize: 22, fontWeight: '700' },
   chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  datePill: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14, borderWidth: 1.5, borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.card, alignItems: 'center', minWidth: 100 },
+  // Material 3 chip: 32dp tall, 14sp text, single-line, 8dp radius
+  datePill: {
+    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8,
+    borderWidth: 1, borderColor: theme.colors.cardBorder,
+    backgroundColor: theme.colors.card,
+    alignItems: 'center', justifyContent: 'center',
+    minHeight: 32,
+  },
   datePillActive: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
-  datePillLabel: { color: theme.colors.text, fontWeight: '900', fontSize: 13 },
-  datePillSub: { color: theme.colors.muted, fontSize: 10, fontWeight: '700', marginTop: 2 },
+  // M3 chip label: 14sp body-large
+  datePillLabel: { color: theme.colors.text, fontWeight: '600', fontSize: 14 },
+  datePillSub: { color: theme.colors.muted, fontSize: 10, fontWeight: '500', marginTop: 2 },
 
   sheetBackdrop: { flex: 1, backgroundColor: '#00000099', justifyContent: 'flex-end' },
   sheetCard: { backgroundColor: theme.colors.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: theme.spacing.lg, paddingBottom: theme.spacing.xxl, borderTopWidth: 1, borderColor: theme.colors.cardBorder },

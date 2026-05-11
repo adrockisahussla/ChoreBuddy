@@ -383,9 +383,6 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
                       onPress={() => { setOnceDate(p.date); setDateSheetOpen(false); }}
                     >
                       <RNText style={[s.datePillLabel, active && { color: '#fff' }]}>{p.label}</RNText>
-                      <RNText style={[s.datePillSub, active && { color: '#fff', opacity: 0.85 }]}>
-                        {p.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                      </RNText>
                     </TouchableOpacity>
                   );
                 })}
@@ -394,9 +391,6 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
                   onPress={() => setShowDatePicker(true)}
                 >
                   <RNText style={[s.datePillLabel, isCustomDate && { color: '#fff' }]}>📅 Custom</RNText>
-                  <RNText style={[s.datePillSub, isCustomDate && { color: '#fff', opacity: 0.85 }]}>
-                    {isCustomDate ? onceDate!.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'pick day'}
-                  </RNText>
                 </TouchableOpacity>
               </View>
             </Pressable>
@@ -434,9 +428,6 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
                           onPress={() => { setAllDay(false); setTime({ h: p.h, m: p.m }); setTimeSheetOpen(false); }}
                         >
                           <RNText style={[s.datePillLabel, active && { color: '#fff' }]}>{p.label}</RNText>
-                          <RNText style={[s.datePillSub, active && { color: '#fff', opacity: 0.85 }]}>
-                            {formatTime12h(p.h, p.m)}
-                          </RNText>
                         </TouchableOpacity>
                       );
                     })}
@@ -445,16 +436,12 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
                       onPress={() => { setAllDay(false); setShowTimePicker(true); }}
                     >
                       <RNText style={[s.datePillLabel, isCustom && { color: '#fff' }]}>🕒 Custom</RNText>
-                      <RNText style={[s.datePillSub, isCustom && { color: '#fff', opacity: 0.85 }]}>
-                        {isCustom && time ? formatTime12h(time.h, time.m) : 'pick time'}
-                      </RNText>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[s.datePill, allDay && s.datePillActive]}
                       onPress={() => { setAllDay(true); setTimeSheetOpen(false); }}
                     >
-                      <RNText style={[s.datePillLabel, allDay && { color: '#fff' }]}>📅 All day</RNText>
-                      <RNText style={[s.datePillSub, allDay && { color: '#fff', opacity: 0.85 }]}>no time</RNText>
+                      <RNText style={[s.datePillLabel, allDay && { color: '#fff' }]}>All day</RNText>
                     </TouchableOpacity>
                   </View>
                 );
@@ -523,14 +510,22 @@ const s = StyleSheet.create({
   fieldIcon: { fontSize: 22 },
   fieldChev: { color: theme.colors.muted, fontSize: 22, fontWeight: '700' },
   chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  // Material 3 chip: 32dp tall, 14sp text, single-line, 8dp radius
   datePill: {
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14,
-    borderWidth: 1.5, borderColor: theme.colors.cardBorder,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
     backgroundColor: theme.colors.card,
-    alignItems: 'center', minWidth: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 32,
   },
   datePillActive: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
-  datePillLabel: { color: theme.colors.text, fontWeight: '700', fontSize: 13 },
+  // M3 chip label: 14sp body-large
+  datePillLabel: { color: theme.colors.text, fontWeight: '600', fontSize: 14 },
+  // (kept for any holdover refs)
   datePillSub: { color: theme.colors.muted, fontSize: 10, fontWeight: '500', marginTop: 2 },
   timeBtn: {
     flex: 1,
