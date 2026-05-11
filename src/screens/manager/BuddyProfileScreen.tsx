@@ -74,9 +74,10 @@ const s = StyleSheet.create({
     backgroundColor: theme.colors.card,
     borderWidth: 1, borderColor: theme.colors.cardBorder,
     borderRadius: theme.radius.xl,
-    padding: 14,
+    padding: 16,
     alignItems: 'center',
+    ...theme.shadow.card,
   },
-  quickIcon: { fontSize: 26, marginBottom: 4 },
-  quickCount: { color: theme.colors.accent, fontSize: 24, fontWeight: '900', marginTop: 4 },
+  quickIcon: { fontSize: 28, marginBottom: 6 },
+  quickCount: { color: theme.colors.accent, fontSize: 26, fontWeight: '700', marginTop: 4 },
 });

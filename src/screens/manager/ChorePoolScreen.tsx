@@ -46,9 +46,9 @@ export default function ChorePoolScreen({ navigation }: any) {
     <Screen contentStyle={{ padding: 0 }}>
       <Header title="Chore Pool" onMenuPress={() => navigation.openDrawer?.()} />
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg }}>
-        <Card padding={12} radius={theme.radius.lg} style={{ marginBottom: 12 }}>
-          <Text style={{ color: '#c5cae9', fontSize: 13, lineHeight: 20 }}>
-            The <Text style={{ color: theme.colors.accent, fontWeight: '900' }}>Chore Pool</Text> is where you store common chores you want to draw from. Add chores to the pool, and assign them to your Buddies from here as well.
+        <Card padding={14} radius={theme.radius.lg} style={{ marginBottom: 12 }}>
+          <Text style={{ color: theme.colors.text, fontSize: 14, lineHeight: 22 }}>
+            The <Text style={{ color: theme.colors.accent, fontWeight: '700' }}>Chore Pool</Text> is where you store common chores you want to draw from. Add chores to the pool, and assign them to your Buddies from here as well.
           </Text>
         </Card>
 

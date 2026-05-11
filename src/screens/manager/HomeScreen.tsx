@@ -118,8 +118,8 @@ export default function HomeScreen({ navigation }: any) {
         <StatCard
           num={totalPending}
           numColor={totalPending > 0 ? theme.colors.danger : theme.colors.muted}
-          title="Pending Approvals"
-          meta={`${pendingChores} chores · ${pendingRewards} reward requests · ${pendingClaims} claims`}
+          title="Approvals"
+          meta={`${pendingChores} chores · ${pendingRewards} rewards · ${pendingClaims} claims`}
           onPress={goActiveChores}
         />
         <StatCard
@@ -197,14 +197,15 @@ const s = StyleSheet.create({
     backgroundColor: theme.colors.card,
     borderWidth: 1, borderColor: theme.colors.cardBorder,
     borderRadius: theme.radius.xl,
-    padding: 14,
+    padding: 16,
     alignItems: 'center',
+    ...theme.shadow.card,
   },
-  inviteName: { color: theme.colors.accent, fontWeight: '900', fontSize: 14 },
-  invitePill: { backgroundColor: theme.colors.accent + '33', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2 },
-  invitePillText: { color: theme.colors.accent, fontSize: 10, fontWeight: '900' },
-  inviteMeta: { color: '#b8932f', fontSize: 11, fontWeight: '700', marginTop: 2 },
-  iconBtn: { width: 32, height: 32, borderWidth: 1, borderColor: theme.colors.cardBorder, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  inviteName: { color: '#92400e', fontWeight: '700', fontSize: 14 },
+  invitePill: { backgroundColor: '#fcd34d', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  invitePillText: { color: '#78350f', fontSize: 10, fontWeight: '700' },
+  inviteMeta: { color: '#92400e', fontSize: 12, fontWeight: '500', marginTop: 2 },
+  iconBtn: { width: 36, height: 36, borderWidth: 1, borderColor: theme.colors.cardBorder, borderRadius: 999, backgroundColor: theme.colors.card, justifyContent: 'center', alignItems: 'center' },
   iconBtnText: { fontSize: 14, color: theme.colors.accent },
   activityIcon: { fontSize: 16, width: 24, textAlign: 'center', paddingTop: 1 },
 });

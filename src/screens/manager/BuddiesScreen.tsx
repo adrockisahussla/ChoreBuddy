@@ -100,13 +100,10 @@ export default function BuddiesScreen({ navigation }: any) {
               onPress={() => navigation.navigate('BuddyProfile', { kidId: b.uid })}
               style={{ gap: 12 }}
             >
-              <Avatar emoji={b.avatar || '👤'} accent={b.accent} size="md" />
+              <Avatar emoji={b.avatar || '👤'} accent={b.accent} size="sm" />
               <View style={{ flex: 1, minWidth: 0 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text variant="h3" style={{ fontSize: 15 }} numberOfLines={1}>{b.displayName}</Text>
-                  {attention > 0 && <Badge label={`! ${attention}`} variant="attention" />}
-                </View>
-                {b.email && <Text variant="tiny" style={{ marginTop: 2, fontSize: 11 }} numberOfLines={1}>{b.email}</Text>}
+                <Text variant="h3" style={{ fontSize: 16 }} numberOfLines={1}>{b.displayName}</Text>
+                {b.email && <Text variant="tiny" style={{ marginTop: 2 }} numberOfLines={1}>{b.email}</Text>}
               </View>
               <View style={s.statsCol}>
                 {active > 0 && <Badge label={String(active)} variant="active" />}
@@ -131,11 +128,11 @@ export default function BuddiesScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-  inviteName: { color: theme.colors.accent, fontWeight: '900', fontSize: 14 },
-  invitePill: { backgroundColor: theme.colors.accent + '33', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2 },
-  invitePillText: { color: theme.colors.accent, fontSize: 10, fontWeight: '900' },
-  inviteMeta: { color: '#b8932f', fontSize: 11, fontWeight: '700', marginTop: 2 },
-  iconBtn: { width: 32, height: 32, borderWidth: 1, borderColor: theme.colors.cardBorder, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  inviteName: { color: '#92400e', fontWeight: '700', fontSize: 14 },
+  invitePill: { backgroundColor: '#fcd34d', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  invitePillText: { color: '#78350f', fontSize: 10, fontWeight: '700' },
+  inviteMeta: { color: '#92400e', fontSize: 12, fontWeight: '500', marginTop: 2 },
+  iconBtn: { width: 36, height: 36, borderWidth: 1, borderColor: theme.colors.cardBorder, borderRadius: 999, backgroundColor: theme.colors.card, justifyContent: 'center', alignItems: 'center' },
   iconBtnText: { fontSize: 14, color: theme.colors.accent },
   statsCol: { alignItems: 'flex-end', gap: 4 },
   arrow: { color: theme.colors.muted, fontSize: 24, fontWeight: '900', marginLeft: 4 },

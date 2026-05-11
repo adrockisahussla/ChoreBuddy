@@ -28,9 +28,9 @@ export default function StatCard({ num, numColor, title, meta, onPress, variant 
       activeOpacity={0.85}
     >
       <Text style={[s.num, { color: brand ? '#ffffff' : (numColor || theme.colors.purple) }]}>{num}</Text>
-      <View style={{ flex: 1 }}>
-        <Text variant="h3" style={{ fontSize: 16, color: brand ? '#ffffff' : theme.colors.text }}>{title}</Text>
-        {!!meta && <Text variant="meta" style={{ marginTop: 2, color: brand ? '#ffffff' : theme.colors.muted, opacity: brand ? 0.85 : 1 }}>{meta}</Text>}
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text variant="h3" style={{ fontSize: 16, color: brand ? '#ffffff' : theme.colors.text }} numberOfLines={1}>{title}</Text>
+        {!!meta && <Text variant="meta" style={{ marginTop: 2, fontSize: 12, color: brand ? '#ffffff' : theme.colors.muted, opacity: brand ? 0.85 : 1 }} numberOfLines={2}>{meta}</Text>}
       </View>
       <Text style={[s.arrow, brand && { color: '#ffffff' }]}>›</Text>
     </TouchableOpacity>
@@ -39,16 +39,16 @@ export default function StatCard({ num, numColor, title, meta, onPress, variant 
 
 const s = StyleSheet.create({
   card: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: theme.colors.card,
     borderWidth: 1, borderColor: theme.colors.cardBorder,
     borderRadius: theme.radius.xl,
-    padding: 16, marginBottom: 10,
+    padding: 14, marginBottom: 10,
   },
   brand: {
     backgroundColor: theme.colors.accent,
     borderColor: theme.colors.accent,
   },
-  num: { fontSize: 32, fontWeight: '700', minWidth: 50, textAlign: 'center' },
+  num: { fontSize: 28, fontWeight: '700', minWidth: 38, textAlign: 'center' },
   arrow: { color: theme.colors.muted, fontSize: 22, fontWeight: '700' },
 });
