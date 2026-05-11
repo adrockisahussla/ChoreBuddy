@@ -98,17 +98,18 @@ export default function BuddiesScreen({ navigation }: any) {
               key={b.uid}
               row
               onPress={() => navigation.navigate('BuddyProfile', { kidId: b.uid })}
-              style={{ gap: 12 }}
+              style={{ gap: 14 }}
+              padding={14}
             >
-              <Avatar emoji={b.avatar || '👤'} accent={b.accent} size="sm" />
+              <Avatar emoji={b.avatar || '👤'} accent={b.accent} size="md" attention={attention} />
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text variant="h3" style={{ fontSize: 15 }} numberOfLines={1}>{b.displayName}</Text>
-                {b.email && <Text variant="tiny" style={{ marginTop: 2 }} numberOfLines={1}>{b.email}</Text>}
-              </View>
-              <View style={s.statsCol}>
-                {active > 0 && <Badge label={String(active)} variant="active" />}
-                {reminderCount > 0 && <Badge label={`🔔 ${reminderCount}`} variant="stat" />}
-                <Badge label={`★ ${points}`} variant="points" />
+                <Text variant="h3" style={{ fontSize: 18 }} numberOfLines={1}>{b.displayName}</Text>
+                <Text variant="meta" style={{ marginTop: 4, fontSize: 13 }}>
+                  {active} {active === 1 ? 'chore' : 'chores'}
+                </Text>
+                <Text style={{ marginTop: 2, fontSize: 13, color: theme.colors.accent, fontWeight: '700' }}>
+                  ★ {points} pts
+                </Text>
               </View>
               <Text style={s.arrow}>›</Text>
             </Card>
