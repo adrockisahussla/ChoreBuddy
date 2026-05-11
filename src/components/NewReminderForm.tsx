@@ -46,6 +46,8 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [dateSheetOpen, setDateSheetOpen] = useState(false);
+  const [timeSheetOpen, setTimeSheetOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // Hydrate on open
@@ -250,89 +252,51 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
           {recur === 'once' && (
             <>
               <Text variant="sectionLabel" style={{ marginTop: 16 }}>Date</Text>
-              <View style={s.pillRow}>
-                {presets.map(p => {
-                  const active = sameDay(onceDate, p.date);
-                  return (
-                    <TouchableOpacity
-                      key={p.label}
-                      style={[s.datePill, active && s.datePillActive]}
-                      onPress={() => setOnceDate(p.date)}
-                    >
-                      <RNText style={[s.datePillLabel, active && { color: '#fff' }]}>{p.label}</RNText>
-                      <RNText style={[s.datePillSub, active && { color: '#fff', opacity: 0.85 }]}>
-                        {p.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                      </RNText>
-                    </TouchableOpacity>
-                  );
-                })}
-                <TouchableOpacity
-                  style={[s.datePill, isCustomDate && s.datePillActive]}
-                  onPress={() => setShowDatePicker(true)}
-                >
-                  <RNText style={[s.datePillLabel, isCustomDate && { color: '#fff' }]}>📅 Pick</RNText>
-                  <RNText style={[s.datePillSub, isCustomDate && { color: '#fff', opacity: 0.85 }]}>
-                    {isCustomDate ? onceDate!.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'a date'}
-                  </RNText>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity style={s.fieldBtn} onPress={() => setDateSheetOpen(true)}>
+                <RNText style={s.fieldIcon}>📅</RNText>
+                <View style={{ flex: 1 }}>
+                  <Text variant="h3" style={{ fontSize: 15 }}>
+                    {onceDate
+                      ? onceDate.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })
+                      : 'Pick a date'}
+                  </Text>
+                  <Text variant="tiny" style={{ marginTop: 2 }}>
+                    {onceDate ? 'Tap to change' : 'Today, tomorrow, weekend, or pick'}
+                  </Text>
+                </View>
+                <RNText style={s.fieldChev}>›</RNText>
+              </TouchableOpacity>
               {showDatePicker && (
                 <DateTimePicker
                   value={onceDate || new Date()}
                   mode="date"
                   minimumDate={new Date()}
-                  onChange={onDateChange}
+                  onChange={(e, sel) => {
+                    if (Platform.OS === 'android') setShowDatePicker(false);
+                    if (e.type === 'set' && sel) { setOnceDate(sel); setDateSheetOpen(false); }
+                  }}
                 />
               )}
             </>
           )}
 
           <Text variant="sectionLabel" style={{ marginTop: 16 }}>Time</Text>
-          {(() => {
-            const TIME_PRESETS: { label: string; h: number; m: number }[] = [
-              { label: 'Morning',      h: 8,  m: 0 },
-              { label: 'Noon',         h: 12, m: 0 },
-              { label: 'After school', h: 15, m: 30 },
-              { label: 'Dinner',       h: 18, m: 0 },
-              { label: 'Bedtime',      h: 20, m: 30 },
-            ];
-            const isCustom = !allDay && !!time && !TIME_PRESETS.some(p => p.h === time.h && p.m === time.m);
-            return (
-              <View style={s.pillRow}>
-                {TIME_PRESETS.map(p => {
-                  const active = !allDay && !!time && time.h === p.h && time.m === p.m;
-                  return (
-                    <TouchableOpacity
-                      key={p.label}
-                      style={[s.datePill, active && s.datePillActive]}
-                      onPress={() => { setAllDay(false); setTime({ h: p.h, m: p.m }); }}
-                    >
-                      <RNText style={[s.datePillLabel, active && { color: '#fff' }]}>{p.label}</RNText>
-                      <RNText style={[s.datePillSub, active && { color: '#fff', opacity: 0.85 }]}>
-                        {formatTime12h(p.h, p.m)}
-                      </RNText>
-                    </TouchableOpacity>
-                  );
-                })}
-                <TouchableOpacity
-                  style={[s.datePill, isCustom && s.datePillActive]}
-                  onPress={() => { setAllDay(false); setShowTimePicker(true); }}
-                >
-                  <RNText style={[s.datePillLabel, isCustom && { color: '#fff' }]}>🕒 Custom</RNText>
-                  <RNText style={[s.datePillSub, isCustom && { color: '#fff', opacity: 0.85 }]}>
-                    {isCustom && time ? formatTime12h(time.h, time.m) : 'Pick time'}
-                  </RNText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[s.datePill, allDay && s.datePillActive]}
-                  onPress={() => setAllDay(a => !a)}
-                >
-                  <RNText style={[s.datePillLabel, allDay && { color: '#fff' }]}>📅 All day</RNText>
-                  <RNText style={[s.datePillSub, allDay && { color: '#fff', opacity: 0.85 }]}>no time</RNText>
-                </TouchableOpacity>
-              </View>
-            );
-          })()}
+          <TouchableOpacity style={s.fieldBtn} onPress={() => setTimeSheetOpen(true)}>
+            <RNText style={s.fieldIcon}>🕒</RNText>
+            <View style={{ flex: 1 }}>
+              <Text variant="h3" style={{ fontSize: 15 }}>
+                {allDay
+                  ? 'All day'
+                  : time
+                    ? formatTime12h(time.h, time.m)
+                    : 'Pick a time'}
+              </Text>
+              <Text variant="tiny" style={{ marginTop: 2 }}>
+                {allDay || time ? 'Tap to change' : 'Morning, noon, after school…'}
+              </Text>
+            </View>
+            <RNText style={s.fieldChev}>›</RNText>
+          </TouchableOpacity>
           {showTimePicker && (
             <DateTimePicker
               value={(() => {
@@ -342,7 +306,14 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
               })()}
               mode="time"
               is24Hour={false}
-              onChange={onTimeChange}
+              onChange={(e, sel) => {
+                if (Platform.OS === 'android') setShowTimePicker(false);
+                if (e.type === 'set' && sel) {
+                  setAllDay(false);
+                  setTime({ h: sel.getHours(), m: sel.getMinutes() });
+                  setTimeSheetOpen(false);
+                }
+              }}
             />
           )}
 
@@ -390,6 +361,107 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
             />
           </View>
         </KeyboardAwareScrollView>
+
+        {/* Date bottom-sheet — Today/Tomorrow/Sat/Next Mon/Pick chips */}
+        <Modal
+          visible={dateSheetOpen}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setDateSheetOpen(false)}
+        >
+          <Pressable style={s.sheetBackdrop} onPress={() => setDateSheetOpen(false)}>
+            <Pressable style={s.sheetCard} onPress={() => {}}>
+              <View style={s.sheetHandle} />
+              <Text variant="sectionLabel" style={{ marginTop: 0, marginBottom: 12 }}>Pick a date</Text>
+              <View style={s.chipGrid}>
+                {presets.map(p => {
+                  const active = sameDay(onceDate, p.date);
+                  return (
+                    <TouchableOpacity
+                      key={p.label}
+                      style={[s.datePill, active && s.datePillActive]}
+                      onPress={() => { setOnceDate(p.date); setDateSheetOpen(false); }}
+                    >
+                      <RNText style={[s.datePillLabel, active && { color: '#fff' }]}>{p.label}</RNText>
+                      <RNText style={[s.datePillSub, active && { color: '#fff', opacity: 0.85 }]}>
+                        {p.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                      </RNText>
+                    </TouchableOpacity>
+                  );
+                })}
+                <TouchableOpacity
+                  style={[s.datePill, isCustomDate && s.datePillActive]}
+                  onPress={() => setShowDatePicker(true)}
+                >
+                  <RNText style={[s.datePillLabel, isCustomDate && { color: '#fff' }]}>📅 Custom</RNText>
+                  <RNText style={[s.datePillSub, isCustomDate && { color: '#fff', opacity: 0.85 }]}>
+                    {isCustomDate ? onceDate!.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'pick day'}
+                  </RNText>
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+
+        {/* Time bottom-sheet — Morning/Noon/After school/Dinner/Bedtime + Custom + All day */}
+        <Modal
+          visible={timeSheetOpen}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setTimeSheetOpen(false)}
+        >
+          <Pressable style={s.sheetBackdrop} onPress={() => setTimeSheetOpen(false)}>
+            <Pressable style={s.sheetCard} onPress={() => {}}>
+              <View style={s.sheetHandle} />
+              <Text variant="sectionLabel" style={{ marginTop: 0, marginBottom: 12 }}>Pick a time</Text>
+              {(() => {
+                const TIME_PRESETS: { label: string; h: number; m: number }[] = [
+                  { label: 'Morning',      h: 8,  m: 0 },
+                  { label: 'Noon',         h: 12, m: 0 },
+                  { label: 'After school', h: 15, m: 30 },
+                  { label: 'Dinner',       h: 18, m: 0 },
+                  { label: 'Bedtime',      h: 20, m: 30 },
+                ];
+                const isCustom = !allDay && !!time && !TIME_PRESETS.some(p => p.h === time.h && p.m === time.m);
+                return (
+                  <View style={s.chipGrid}>
+                    {TIME_PRESETS.map(p => {
+                      const active = !allDay && !!time && time.h === p.h && time.m === p.m;
+                      return (
+                        <TouchableOpacity
+                          key={p.label}
+                          style={[s.datePill, active && s.datePillActive]}
+                          onPress={() => { setAllDay(false); setTime({ h: p.h, m: p.m }); setTimeSheetOpen(false); }}
+                        >
+                          <RNText style={[s.datePillLabel, active && { color: '#fff' }]}>{p.label}</RNText>
+                          <RNText style={[s.datePillSub, active && { color: '#fff', opacity: 0.85 }]}>
+                            {formatTime12h(p.h, p.m)}
+                          </RNText>
+                        </TouchableOpacity>
+                      );
+                    })}
+                    <TouchableOpacity
+                      style={[s.datePill, isCustom && s.datePillActive]}
+                      onPress={() => { setAllDay(false); setShowTimePicker(true); }}
+                    >
+                      <RNText style={[s.datePillLabel, isCustom && { color: '#fff' }]}>🕒 Custom</RNText>
+                      <RNText style={[s.datePillSub, isCustom && { color: '#fff', opacity: 0.85 }]}>
+                        {isCustom && time ? formatTime12h(time.h, time.m) : 'pick time'}
+                      </RNText>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[s.datePill, allDay && s.datePillActive]}
+                      onPress={() => { setAllDay(true); setTimeSheetOpen(false); }}
+                    >
+                      <RNText style={[s.datePillLabel, allDay && { color: '#fff' }]}>📅 All day</RNText>
+                      <RNText style={[s.datePillSub, allDay && { color: '#fff', opacity: 0.85 }]}>no time</RNText>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })()}
+            </Pressable>
+          </Pressable>
+        </Modal>
 
         <Modal
           visible={pickerOpen}
@@ -441,11 +513,21 @@ const s = StyleSheet.create({
     padding: 14, fontSize: 16, marginTop: 6,
   },
   pillRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 6 },
+  fieldBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: theme.colors.card,
+    borderWidth: 1.5, borderColor: theme.colors.cardBorder,
+    borderRadius: theme.radius.lg,
+    padding: 14, marginTop: 6,
+  },
+  fieldIcon: { fontSize: 22 },
+  fieldChev: { color: theme.colors.muted, fontSize: 22, fontWeight: '700' },
+  chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   datePill: {
     paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14,
     borderWidth: 1.5, borderColor: theme.colors.cardBorder,
     backgroundColor: theme.colors.card,
-    alignItems: 'center', minWidth: 70,
+    alignItems: 'center', minWidth: 100,
   },
   datePillActive: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
   datePillLabel: { color: theme.colors.text, fontWeight: '700', fontSize: 13 },
