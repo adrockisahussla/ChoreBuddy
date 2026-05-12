@@ -1,6 +1,7 @@
 import React from 'react';
-import { Text as RNText, TextStyle, TextProps } from 'react-native';
+import { Text as RNText, TextStyle, TextProps, StyleSheet } from 'react-native';
 import { theme } from '../theme';
+import { scaleFont } from '../utils/textScale';
 
 type Variant = 'h1' | 'h2' | 'h3' | 'sectionLabel' | 'body' | 'meta' | 'tiny' | 'empty';
 
@@ -14,12 +15,19 @@ interface Props extends Omit<TextProps, 'style'> {
 /**
  * Text: typography presets from the new design system.
  * Inter 400/500/700. Dark text on light bg.
+ *
+ * Multiplies any `fontSize` (from variant or override) by the app-wide
+ * text scale (set in Settings → Fonts). `allowFontScaling={false}` is
+ * passed so the OS-level "Font size" accessibility setting doesn't
+ * compound on top of the in-app slider.
  */
 export default function Text({ children, variant = 'body', color, style, ...rest }: Props) {
   const v = variantStyles[variant];
-  const colorOverride = color ? { color } : undefined;
+  const flat = StyleSheet.flatten([v, color ? { color } : null, style as TextStyle]) || {};
+  const scaled: TextStyle = { ...flat };
+  if (typeof flat.fontSize === 'number') scaled.fontSize = scaleFont(flat.fontSize) as number;
   return (
-    <RNText {...rest} style={[v, colorOverride, style]}>
+    <RNText allowFontScaling={false} {...rest} style={scaled}>
       {children}
     </RNText>
   );

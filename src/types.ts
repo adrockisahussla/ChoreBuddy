@@ -113,4 +113,6 @@ export interface User {
   accent?: string;
   age?: number;
   createdAt: number;
+  /** App-level UI text scale multiplier (1.0 = design size). */
+  textScale?: number;
 }

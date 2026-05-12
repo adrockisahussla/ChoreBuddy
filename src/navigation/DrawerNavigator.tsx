@@ -6,6 +6,7 @@ import HomeStack from './HomeStack';
 import BuddiesStack from './BuddiesStack';
 import ChorePoolScreen from '../screens/manager/ChorePoolScreen';
 import RemindersScreen from '../screens/manager/RemindersScreen';
+import SettingsScreen from '../screens/manager/SettingsScreen';
 import { theme } from '../theme';
 import { authService } from '../services/authService';
 import { useCurrentUser } from '../hooks/useCurrentUser';
@@ -18,6 +19,7 @@ const ITEMS: { route: string; label: string; icon: string }[] = [
   { route: 'Buddies', label: 'Buddies', icon: '👥' },
   { route: 'ChorePool', label: 'Chore Pool', icon: '⭐' },
   { route: 'Reminders', label: 'Reminders', icon: '🔔' },
+  { route: 'Settings',  label: 'Settings',  icon: '⚙️' },
 ];
 
 function CustomDrawerContent(props: any) {
@@ -93,6 +95,7 @@ export default function DrawerNavigator() {
       <Drawer.Screen name="Buddies" component={BuddiesStack} options={{ title: 'Buddies' }} />
       <Drawer.Screen name="ChorePool" component={ChorePoolScreen} options={{ title: 'Chore Pool' }} />
       <Drawer.Screen name="Reminders" component={RemindersScreen} options={{ title: 'Reminders' }} />
+      <Drawer.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
     </Drawer.Navigator>
   );
 }
