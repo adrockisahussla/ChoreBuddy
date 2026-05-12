@@ -167,8 +167,9 @@ export default function DateWheel({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={s.backdrop} onPress={onClose}>
-        <Pressable style={s.sheet} onPress={() => {}}>
+      <View style={s.root}>
+        <Pressable style={s.backdrop} onPress={onClose} />
+        <View style={s.sheet}>
           <View style={s.handle} />
           <Text variant="sectionLabel" style={{ marginTop: 0, marginBottom: 16 }}>Pick a date</Text>
 
@@ -198,14 +199,19 @@ export default function DateWheel({
               <RNText style={s.confirmText}>Done</RNText>
             </TouchableOpacity>
           </View>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }
 
 const s = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  root: { flex: 1, justifyContent: 'flex-end' },
+  backdrop: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
   sheet: {
     backgroundColor: theme.colors.card,
     borderTopLeftRadius: 24,
