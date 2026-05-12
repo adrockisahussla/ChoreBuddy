@@ -7,6 +7,7 @@ import BuddiesStack from './BuddiesStack';
 import ChorePoolScreen from '../screens/manager/ChorePoolScreen';
 import RemindersScreen from '../screens/manager/RemindersScreen';
 import SettingsScreen from '../screens/manager/SettingsScreen';
+import BuddyHomeScreen from '../screens/buddy/BuddyHomeScreen';
 import { theme } from '../theme';
 import { authService } from '../services/authService';
 import { useCurrentUser } from '../hooks/useCurrentUser';
@@ -14,19 +15,22 @@ import { useConfirm } from '../components/ConfirmModal';
 
 const Drawer = createDrawerNavigator();
 
-const ITEMS: { route: string; label: string; icon: string }[] = [
-  { route: 'Home', label: 'Home', icon: '🏠' },
-  { route: 'Buddies', label: 'Buddies', icon: '👥' },
-  { route: 'ChorePool', label: 'Chore Pool', icon: '⭐' },
-  { route: 'Reminders', label: 'Reminders', icon: '🔔' },
-  { route: 'Settings',  label: 'Settings',  icon: '⚙️' },
+type DrawerItem = { route: string; label: string; icon: string; managerOnly?: boolean };
+const ITEMS: DrawerItem[] = [
+  { route: 'Home',      label: 'Home',       icon: '🏠' },
+  { route: 'Buddies',   label: 'Buddies',    icon: '👥', managerOnly: true },
+  { route: 'ChorePool', label: 'Chore Pool', icon: '⭐', managerOnly: true },
+  { route: 'Reminders', label: 'Reminders',  icon: '🔔' },
+  { route: 'Settings',  label: 'Settings',   icon: '⚙️' },
 ];
 
 function CustomDrawerContent(props: any) {
   const { fbUser, userDoc } = useCurrentUser();
-  const name = userDoc?.displayName || fbUser?.displayName || 'Manager';
+  const isBuddy = userDoc?.role === 'buddy';
+  const name = userDoc?.displayName || fbUser?.displayName || (isBuddy ? 'Buddy' : 'Manager');
   const email = fbUser?.email || '';
   const confirm = useConfirm();
+  const visibleItems = ITEMS.filter(it => !it.managerOnly || !isBuddy);
 
   const signOut = async () => {
     const ok = await confirm({
@@ -56,11 +60,11 @@ function CustomDrawerContent(props: any) {
           <View style={{ flex: 1 }}>
             <Text style={s.userName}>{name}</Text>
             {!!email && <Text style={s.userEmail} numberOfLines={1}>{email}</Text>}
-            <Text style={s.userRole}>Manager</Text>
+            <Text style={s.userRole}>{isBuddy ? 'Buddy' : 'Manager'}</Text>
           </View>
         </View>
         <View style={{ padding: 8 }}>
-          {ITEMS.map(it => {
+          {visibleItems.map(it => {
             const active = props.state.routeNames[props.state.index] === it.route;
             return (
               <TouchableOpacity
@@ -83,6 +87,8 @@ function CustomDrawerContent(props: any) {
 }
 
 export default function DrawerNavigator() {
+  const { userDoc } = useCurrentUser();
+  const isBuddy = userDoc?.role === 'buddy';
   return (
     <Drawer.Navigator
       drawerContent={CustomDrawerContent}
@@ -91,9 +97,19 @@ export default function DrawerNavigator() {
         drawerStyle: { backgroundColor: theme.colors.bg, width: 280 },
       }}
     >
-      <Drawer.Screen name="Home" component={HomeStack} options={{ title: 'Home' }} />
-      <Drawer.Screen name="Buddies" component={BuddiesStack} options={{ title: 'Buddies' }} />
-      <Drawer.Screen name="ChorePool" component={ChorePoolScreen} options={{ title: 'Chore Pool' }} />
+      {/* Home swaps based on role — manager gets the full HomeStack with deep
+          links; buddy gets a slim buddy-flavored Home. */}
+      <Drawer.Screen
+        name="Home"
+        component={isBuddy ? BuddyHomeScreen : HomeStack}
+        options={{ title: 'Home' }}
+      />
+      {!isBuddy && (
+        <Drawer.Screen name="Buddies" component={BuddiesStack} options={{ title: 'Buddies' }} />
+      )}
+      {!isBuddy && (
+        <Drawer.Screen name="ChorePool" component={ChorePoolScreen} options={{ title: 'Chore Pool' }} />
+      )}
       <Drawer.Screen name="Reminders" component={RemindersScreen} options={{ title: 'Reminders' }} />
       <Drawer.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
     </Drawer.Navigator>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, ScrollView, TouchableOpacity, Platform, ToastAndroid, Text as RNText, StyleSheet } from 'react-native';
 import { useReminders } from '../../hooks/useReminders';
 import { useBuddies } from '../../hooks/useBuddies';
+import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { theme } from '../../theme';
 import { reminderService } from '../../services/reminderService';
 import { cancelReminderNotification } from '../../services/notificationService';
@@ -16,10 +17,18 @@ import {
 export default function RemindersScreen({ route, navigation }: any) {
   const { reminders } = useReminders();
   const { buddies } = useBuddies();
+  const { fbUser, userDoc } = useCurrentUser();
   const confirm = useConfirm();
-  const filterKid: string | undefined = route?.params?.kidId;
-  const isSubScreen = !!filterKid && navigation?.canGoBack?.();
-  const title = filterKid ? `${buddyLabel(filterKid, buddies)} · Reminders` : 'Reminders';
+  const isBuddy = userDoc?.role === 'buddy';
+  // Buddies always see only their own reminders; managers see everything
+  // (or a single kid when navigated via the BuddyProfile sub-screen).
+  const filterKid: string | undefined = isBuddy ? fbUser?.uid : route?.params?.kidId;
+  const isSubScreen = !!route?.params?.kidId && navigation?.canGoBack?.();
+  const title = isBuddy
+    ? 'My Reminders'
+    : route?.params?.kidId
+      ? `${buddyLabel(route.params.kidId, buddies)} · Reminders`
+      : 'Reminders';
 
   const [selectedWeek, setSelectedWeek] = useState<string>(currentWeek());
   const [createOpen, setCreateOpen] = useState(false);
@@ -77,13 +86,15 @@ export default function RemindersScreen({ route, navigation }: any) {
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
         <WeekNavigator weekOf={selectedWeek} onChange={setSelectedWeek} />
 
-        <Button
-          label="+ New Reminder"
-          variant="primary"
-          onPress={() => { setEditing(null); setCreateOpen(true); }}
-          full
-          style={{ marginBottom: 12 }}
-        />
+        {!isBuddy && (
+          <Button
+            label="+ New Reminder"
+            variant="primary"
+            onPress={() => { setEditing(null); setCreateOpen(true); }}
+            full
+            style={{ marginBottom: 12 }}
+          />
+        )}
 
         {list.length === 0 ? (
           <Text variant="empty">No reminders this week.</Text>
@@ -95,16 +106,23 @@ export default function RemindersScreen({ route, navigation }: any) {
             ? `${dateLabel} · all day`
             : `${dateLabel} · ${formatTime12h(r.time)}`;
           return (
-            <Card key={r.id} row onPress={() => { setEditing(r); setCreateOpen(true); }} style={{ gap: 12 }}>
+            <Card
+              key={r.id}
+              row
+              onPress={isBuddy ? undefined : () => { setEditing(r); setCreateOpen(true); }}
+              style={{ gap: 12 }}
+            >
               <Avatar emoji={b?.avatar || '🔔'} accent={b?.accent} size="sm" />
               <View style={{ flex: 1 }}>
                 <Text variant="h3" style={{ fontSize: 15 }}>{r.title}</Text>
                 <Text variant="meta" style={{ marginTop: 2, fontSize: 12 }}>{when}</Text>
                 {!!r.notes && <Text variant="tiny" style={{ marginTop: 4, opacity: 0.8 }} numberOfLines={2}>{r.notes}</Text>}
               </View>
-              <TouchableOpacity style={s.delBtn} onPress={() => onDelete(r)} hitSlop={10}>
-                <RNText style={{ fontSize: 18 }}>🗑</RNText>
-              </TouchableOpacity>
+              {!isBuddy && (
+                <TouchableOpacity style={s.delBtn} onPress={() => onDelete(r)} hitSlop={10}>
+                  <RNText style={{ fontSize: 18 }}>🗑</RNText>
+                </TouchableOpacity>
+              )}
             </Card>
           );
         })}
