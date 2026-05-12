@@ -2,6 +2,7 @@ import React from 'react';
 import { ScrollView, View, ViewStyle, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import LinearGradient from 'react-native-linear-gradient';
 import { theme } from '../theme';
 
 interface Props {
@@ -38,9 +39,16 @@ export default function Screen({ children, scroll, keyboardAware, style, content
     )
   );
   return (
-    <SafeAreaView style={[s.root, style]} edges={['bottom']}>
-      {inner}
-    </SafeAreaView>
+    <LinearGradient
+      colors={theme.colors.bgGradient as unknown as string[]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={s.gradient}
+    >
+      <SafeAreaView style={[s.root, style]} edges={['bottom']}>
+        {inner}
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
@@ -49,6 +57,7 @@ export default function Screen({ children, scroll, keyboardAware, style, content
 export const SCREEN_BOTTOM_PAD = 96;
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: theme.colors.bg },
+  gradient: { flex: 1 },
+  root: { flex: 1, backgroundColor: 'transparent' },
   content: { padding: theme.spacing.lg },
 });

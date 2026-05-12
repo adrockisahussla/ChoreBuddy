@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import { theme } from '../theme';
 
 interface Props {
@@ -11,13 +12,18 @@ interface Props {
 }
 
 /**
- * Header: top bar with brand gradient (currently a flat pink fill —
- * will be replaced with a real LinearGradient component once
- * react-native-linear-gradient lands). White text + icons throughout.
+ * Header: top bar with the brand LinearGradient sweeping
+ * purple → pink → red. White text + icons throughout.
  */
 export default function Header({ title, onMenuPress, onBackPress, rightSlot, badge }: Props) {
   return (
-    <View style={s.row}>
+    <LinearGradient
+      colors={theme.colors.brandGradient as unknown as string[]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 0 }}
+      style={s.row}
+    >
+      <StatusBar barStyle="light-content" backgroundColor={theme.colors.brandGradient[0]} />
       {onBackPress ? (
         <TouchableOpacity style={s.btn} onPress={onBackPress}>
           <Text style={s.btnText}>←</Text>
@@ -36,7 +42,7 @@ export default function Header({ title, onMenuPress, onBackPress, rightSlot, bad
         {!onBackPress && <Text style={s.sparkle}>✦ </Text>}{title}
       </Text>
       {rightSlot}
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -47,7 +53,6 @@ const s = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 16,
     paddingVertical: 18,
-    backgroundColor: theme.colors.accent,
   },
   btn: { padding: 4, position: 'relative' },
   btnText: { color: '#ffffff', fontSize: 24, fontWeight: '700' },
