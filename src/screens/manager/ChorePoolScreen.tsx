@@ -9,7 +9,7 @@ import { useBuddies } from '../../hooks/useBuddies';
 import { useFamilyId } from '../../hooks/useFamilyId';
 import { chorePoolService } from '../../services/chorePoolService';
 import { choreService, getEndOfWeek, getWeekOf } from '../../services/choreService';
-import { Header, Screen, Card, Avatar, Pill, Button, Text, useConfirm, DateWheel, RecurrencePicker, recurrenceLabel, SCREEN_BOTTOM_PAD } from '../../components';
+import { Header, Screen, Card, Avatar, Pill, Button, Text, useConfirm, DateWheel, RecurrencePicker, recurrenceLabel, DayOfWeekPicker, weekdayLabel, SCREEN_BOTTOM_PAD } from '../../components';
 
 export default function ChorePoolScreen({ navigation }: any) {
   const { chorePool } = useChorePool();
@@ -106,6 +106,8 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
   const [onceDate, setOnceDate] = useState<Date | null>(null);
   const [dateWheelOpen, setDateWheelOpen] = useState(false);
   const [recurOpen, setRecurOpen] = useState(false);
+  const [weekday, setWeekday] = useState<number>(new Date().getDay());
+  const [dayOpen, setDayOpen] = useState(false);
   const { buddies } = useBuddies();
   const familyId = useFamilyId();
 
@@ -120,7 +122,14 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
       ? (() => { const d = new Date(); d.setHours(23, 59, 59, 999); return d.getTime(); })()
       : recur === 'once'
         ? (() => { const d = new Date(onceDate!); d.setHours(23, 59, 59, 999); return d.getTime(); })()
-        : getEndOfWeek(new Date());
+        : (() => {
+            // Weekly — due on the next chosen weekday (today counts) at end of day.
+            const d = new Date();
+            const offset = (weekday - d.getDay() + 7) % 7;
+            d.setDate(d.getDate() + offset);
+            d.setHours(23, 59, 59, 999);
+            return d.getTime();
+          })();
     return {
       familyId: familyId || '',
       title: title.trim(), assignedTo: buddyUid, status: 'todo' as const, rejectionNote: '',
@@ -205,6 +214,17 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
           <RNText style={s.dateText} numberOfLines={1}>{recurrenceLabel(recur)}</RNText>
           <RNText style={s.dateChev}>›</RNText>
         </TouchableOpacity>
+
+        {recur === 'weekly' && (
+          <>
+            <Text variant="sectionLabel" style={{ marginTop: 16 }}>Day of week</Text>
+            <TouchableOpacity style={s.dateFieldBtn} onPress={() => setDayOpen(true)}>
+              <RNText style={s.dateIcon}>📆</RNText>
+              <RNText style={s.dateText} numberOfLines={1}>{weekdayLabel(weekday)}</RNText>
+              <RNText style={s.dateChev}>›</RNText>
+            </TouchableOpacity>
+          </>
+        )}
 
         {recur === 'once' && (
           <>
@@ -298,6 +318,13 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
           setPoints(POINTS_PER[r]);
           if (r !== 'once') setOnceDate(null);
         }}
+      />
+
+      <DayOfWeekPicker
+        visible={dayOpen}
+        value={weekday}
+        onClose={() => setDayOpen(false)}
+        onConfirm={(w) => setWeekday(w)}
       />
     </SafeAreaView>
   );

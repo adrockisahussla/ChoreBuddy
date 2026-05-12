@@ -15,6 +15,7 @@ import Avatar from './Avatar';
 import TimeWheel from './TimeWheel';
 import DateWheel from './DateWheel';
 import RecurrencePicker, { recurrenceLabel } from './RecurrencePicker';
+import DayOfWeekPicker, { weekdayLabel } from './DayOfWeekPicker';
 
 interface Props {
   visible: boolean;
@@ -43,10 +44,12 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
   const [time, setTime] = useState<{ h: number; m: number } | null>(null);
   const [assignTo, setAssignTo] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+  const [weekday, setWeekday] = useState<number>(new Date().getDay());
   const [pickerOpen, setPickerOpen] = useState(false);
   const [wheelOpen, setWheelOpen] = useState(false);
   const [dateWheelOpen, setDateWheelOpen] = useState(false);
   const [recurOpen, setRecurOpen] = useState(false);
+  const [dayOpen, setDayOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // Hydrate on open
@@ -62,6 +65,8 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
       } else {
         setTime({ h: 9, m: 0 });
       }
+      // Recover weekday from the dueDate if this was a weekly reminder.
+      setWeekday(reminder.dueDate ? new Date(reminder.dueDate).getDay() : new Date().getDay());
       setAssignTo(reminder.assignedTo);
       setNotes(reminder.notes || '');
     } else {
@@ -69,6 +74,7 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
       setRecur('once');
       setOnceDate(null);
       setTime({ h: 9, m: 0 });
+      setWeekday(new Date().getDay());
       setAssignTo(defaultBuddyUid || null);
       setNotes('');
     }
@@ -90,10 +96,13 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
     let d: Date;
     if (recur === 'once' && onceDate) {
       d = new Date(onceDate);
+    } else if (recur === 'weekly') {
+      // Next occurrence of `weekday` from today (today counts).
+      d = new Date();
+      const offset = (weekday - d.getDay() + 7) % 7;
+      d.setDate(d.getDate() + offset);
     } else {
-      // For daily/weekly, the "next" fire is today (if time hasn't passed)
-      // or tomorrow (if it has). Daily/weekly recurring reminders re-arm on
-      // a separate sweep — here we just pick a sensible first-fire timestamp.
+      // Daily — fires today; the recurring sweep re-arms each day.
       d = new Date();
     }
     if (time) {
@@ -205,6 +214,17 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
             <RNText style={s.timeText} numberOfLines={1}>{recurrenceLabel(recur)}</RNText>
             <RNText style={s.timeChev}>›</RNText>
           </TouchableOpacity>
+
+          {recur === 'weekly' && (
+            <>
+              <Text variant="sectionLabel" style={{ marginTop: 16 }}>Day of week</Text>
+              <TouchableOpacity style={s.timeFieldBtn} onPress={() => setDayOpen(true)}>
+                <RNText style={s.timeIcon}>📆</RNText>
+                <RNText style={s.timeText} numberOfLines={1}>{weekdayLabel(weekday)}</RNText>
+                <RNText style={s.timeChev}>›</RNText>
+              </TouchableOpacity>
+            </>
+          )}
 
           {recur === 'once' && (
             <>
@@ -326,6 +346,13 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
             setRecur(r);
             if (r !== 'once') setOnceDate(null);
           }}
+        />
+
+        <DayOfWeekPicker
+          visible={dayOpen}
+          value={weekday}
+          onClose={() => setDayOpen(false)}
+          onConfirm={(w) => setWeekday(w)}
         />
       </SafeAreaView>
     </Modal>
