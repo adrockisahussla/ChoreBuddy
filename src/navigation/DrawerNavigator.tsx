@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, SafeAreaView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { createDrawerNavigator, DrawerContentScrollView } from '@react-navigation/drawer';
 import { CommonActions } from '@react-navigation/native';
 import HomeStack from './HomeStack';
@@ -53,7 +54,7 @@ function CustomDrawerContent(props: any) {
   };
 
   return (
-    <SafeAreaView style={s.drawerRoot}>
+    <SafeAreaView style={s.drawerRoot} edges={['top', 'bottom']}>
       <DrawerContentScrollView {...props} contentContainerStyle={{ padding: 0 }}>
         <View style={s.userBox}>
           <View style={s.userAvatar}><Text style={{ fontSize: 26 }}>👤</Text></View>
