@@ -73,7 +73,11 @@ export default function BuddyHomeScreen({ navigation }: any) {
       <Header title={`Hi, ${myName}!`} onMenuPress={() => navigation.openDrawer?.()} />
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
         {/* Available points hero */}
-        <TouchableOpacity activeOpacity={0.85} style={[s.heroCard, { backgroundColor: accent }]}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          style={[s.heroCard, { backgroundColor: accent }]}
+          onPress={() => navigation.navigate('MyRewards')}
+        >
           <RNText style={s.heroNum}>{available}</RNText>
           <View style={{ flex: 1 }}>
             <RNText style={s.heroLabel}>Available Points</RNText>
@@ -86,10 +90,10 @@ export default function BuddyHomeScreen({ navigation }: any) {
 
         {/* 4 stat tiles */}
         <View style={s.grid}>
-          <StatCard num={todayChores} title="Today's Chores" />
-          <StatCard num={`${weeklyDone}/${weekly.length}`} title="Weekly Progress" />
-          <StatCard num={activeRewards} title="Rewards" />
-          <StatCard num={upcomingRem} title="Reminders" />
+          <StatCard num={todayChores} title="Today's Chores" onPress={() => navigation.navigate('MyChores')} />
+          <StatCard num={`${weeklyDone}/${weekly.length}`} title="Weekly Progress" onPress={() => navigation.navigate('MyChores')} />
+          <StatCard num={activeRewards} title="Rewards" onPress={() => navigation.navigate('MyRewards')} />
+          <StatCard num={upcomingRem} title="Reminders" onPress={() => navigation.navigate('Reminders')} />
         </View>
 
         {/* Recent activity */}

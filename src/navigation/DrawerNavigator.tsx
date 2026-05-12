@@ -9,6 +9,8 @@ import ChorePoolScreen from '../screens/manager/ChorePoolScreen';
 import RemindersScreen from '../screens/manager/RemindersScreen';
 import SettingsScreen from '../screens/manager/SettingsScreen';
 import BuddyHomeScreen from '../screens/buddy/BuddyHomeScreen';
+import BuddyChoresScreen from '../screens/buddy/BuddyChoresScreen';
+import BuddyRewardsScreen from '../screens/buddy/BuddyRewardsScreen';
 import { theme } from '../theme';
 import { authService } from '../services/authService';
 import { useCurrentUser } from '../hooks/useCurrentUser';
@@ -16,13 +18,15 @@ import { useConfirm } from '../components/ConfirmModal';
 
 const Drawer = createDrawerNavigator();
 
-type DrawerItem = { route: string; label: string; icon: string; managerOnly?: boolean };
+type DrawerItem = { route: string; label: string; icon: string; managerOnly?: boolean; buddyOnly?: boolean };
 const ITEMS: DrawerItem[] = [
-  { route: 'Home',      label: 'Home',       icon: '🏠' },
-  { route: 'Buddies',   label: 'Buddies',    icon: '👥', managerOnly: true },
-  { route: 'ChorePool', label: 'Chore Pool', icon: '⭐', managerOnly: true },
-  { route: 'Reminders', label: 'Reminders',  icon: '🔔' },
-  { route: 'Settings',  label: 'Settings',   icon: '⚙️' },
+  { route: 'Home',        label: 'Home',       icon: '🏠' },
+  { route: 'Buddies',     label: 'Buddies',    icon: '👥', managerOnly: true },
+  { route: 'ChorePool',   label: 'Chore Pool', icon: '⭐', managerOnly: true },
+  { route: 'MyChores',    label: 'My Chores',  icon: '✅', buddyOnly: true },
+  { route: 'Reminders',   label: 'Reminders',  icon: '🔔' },
+  { route: 'MyRewards',   label: 'Rewards',    icon: '🎁', buddyOnly: true },
+  { route: 'Settings',    label: 'Settings',   icon: '⚙️' },
 ];
 
 function CustomDrawerContent(props: any) {
@@ -31,7 +35,11 @@ function CustomDrawerContent(props: any) {
   const name = userDoc?.displayName || fbUser?.displayName || (isBuddy ? 'Buddy' : 'Manager');
   const email = fbUser?.email || '';
   const confirm = useConfirm();
-  const visibleItems = ITEMS.filter(it => !it.managerOnly || !isBuddy);
+  const visibleItems = ITEMS.filter(it => {
+    if (it.managerOnly && isBuddy) return false;
+    if (it.buddyOnly && !isBuddy) return false;
+    return true;
+  });
 
   const signOut = async () => {
     const ok = await confirm({
@@ -111,7 +119,13 @@ export default function DrawerNavigator() {
       {!isBuddy && (
         <Drawer.Screen name="ChorePool" component={ChorePoolScreen} options={{ title: 'Chore Pool' }} />
       )}
+      {isBuddy && (
+        <Drawer.Screen name="MyChores" component={BuddyChoresScreen} options={{ title: 'My Chores' }} />
+      )}
       <Drawer.Screen name="Reminders" component={RemindersScreen} options={{ title: 'Reminders' }} />
+      {isBuddy && (
+        <Drawer.Screen name="MyRewards" component={BuddyRewardsScreen} options={{ title: 'Rewards' }} />
+      )}
       <Drawer.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
     </Drawer.Navigator>
   );
