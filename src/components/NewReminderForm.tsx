@@ -15,7 +15,7 @@ import Avatar from './Avatar';
 import TimeWheel from './TimeWheel';
 import DateWheel from './DateWheel';
 import RecurrencePicker, { recurrenceLabel } from './RecurrencePicker';
-import DayOfWeekPicker, { weekdayLabel } from './DayOfWeekPicker';
+import DayOfWeekPicker, { weekdaysLabel, nextWeekdayDate } from './DayOfWeekPicker';
 
 interface Props {
   visible: boolean;
@@ -44,7 +44,7 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
   const [time, setTime] = useState<{ h: number; m: number } | null>(null);
   const [assignTo, setAssignTo] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
-  const [weekday, setWeekday] = useState<number>(new Date().getDay());
+  const [weekdays, setWeekdays] = useState<number[]>([new Date().getDay()]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [wheelOpen, setWheelOpen] = useState(false);
   const [dateWheelOpen, setDateWheelOpen] = useState(false);
@@ -65,8 +65,12 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
       } else {
         setTime({ h: 9, m: 0 });
       }
-      // Recover weekday from the dueDate if this was a weekly reminder.
-      setWeekday(reminder.dueDate ? new Date(reminder.dueDate).getDay() : new Date().getDay());
+      // Prefer the saved weekdays array; fall back to deriving from dueDate.
+      setWeekdays(
+        reminder.weekdays && reminder.weekdays.length > 0
+          ? reminder.weekdays
+          : [reminder.dueDate ? new Date(reminder.dueDate).getDay() : new Date().getDay()],
+      );
       setAssignTo(reminder.assignedTo);
       setNotes(reminder.notes || '');
     } else {
@@ -74,7 +78,7 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
       setRecur('once');
       setOnceDate(null);
       setTime({ h: 9, m: 0 });
-      setWeekday(new Date().getDay());
+      setWeekdays([new Date().getDay()]);
       setAssignTo(defaultBuddyUid || null);
       setNotes('');
     }
@@ -97,10 +101,8 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
     if (recur === 'once' && onceDate) {
       d = new Date(onceDate);
     } else if (recur === 'weekly') {
-      // Next occurrence of `weekday` from today (today counts).
-      d = new Date();
-      const offset = (weekday - d.getDay() + 7) % 7;
-      d.setDate(d.getDate() + offset);
+      // Soonest of the chosen weekdays (today counts).
+      d = nextWeekdayDate(weekdays);
     } else {
       // Daily — fires today; the recurring sweep re-arms each day.
       d = new Date();
@@ -137,6 +139,7 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
         weekOf: getWeekOf(new Date(dueDate)),
         notes: notes.trim(),
         createdBy: fbUser?.uid || '',
+        ...(recur === 'weekly' ? { weekdays } : {}),
       };
 
       let docId: string;
@@ -217,10 +220,10 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
 
           {recur === 'weekly' && (
             <>
-              <Text variant="sectionLabel" style={{ marginTop: 16 }}>Day of week</Text>
+              <Text variant="sectionLabel" style={{ marginTop: 16 }}>Days of week</Text>
               <TouchableOpacity style={s.timeFieldBtn} onPress={() => setDayOpen(true)}>
                 <RNText style={s.timeIcon}>📆</RNText>
-                <RNText style={s.timeText} numberOfLines={1}>{weekdayLabel(weekday)}</RNText>
+                <RNText style={s.timeText} numberOfLines={1}>{weekdaysLabel(weekdays)}</RNText>
                 <RNText style={s.timeChev}>›</RNText>
               </TouchableOpacity>
             </>
@@ -350,9 +353,9 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
 
         <DayOfWeekPicker
           visible={dayOpen}
-          value={weekday}
+          value={weekdays}
           onClose={() => setDayOpen(false)}
-          onConfirm={(w) => setWeekday(w)}
+          onConfirm={(w) => setWeekdays(w)}
         />
       </SafeAreaView>
     </Modal>

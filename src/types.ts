@@ -20,6 +20,8 @@ export interface Chore {
   completedAt: number;
   overdue: boolean;
   createdAt: number;
+  /** For weekly recurrence — which day(s) of week (0=Sun..6=Sat). */
+  weekdays?: number[];
 }
 
 export interface ChorePoolItem {
@@ -54,6 +56,8 @@ export interface Reminder {
   firedAt?: number;
   /** Notifee scheduled-notification id, so we can cancel on edit/delete. */
   notificationId?: string;
+  /** For weekly recurrence — which day(s) of week (0=Sun..6=Sat). */
+  weekdays?: number[];
 }
 
 export interface Reward {
