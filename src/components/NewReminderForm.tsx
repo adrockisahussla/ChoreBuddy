@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, TouchableOpacity, TextInput, StyleSheet, Alert, Modal, SafeAreaView, Platform, ToastAndroid, Pressable, Text as RNText } from 'react-native';
+import { View, TouchableOpacity, TextInput, StyleSheet, Alert, Modal, SafeAreaView, Platform, ToastAndroid, Text as RNText } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { theme } from '../theme';
-import { Recurrence, Reminder, User } from '../types';
+import { Recurrence, Reminder } from '../types';
 import { reminderService } from '../services/reminderService';
 import { useBuddies } from '../hooks/useBuddies';
 import { useFamilyId } from '../hooks/useFamilyId';
@@ -11,11 +11,11 @@ import { getWeekOf } from '../utils/week';
 import { scheduleReminderNotification, cancelReminderNotification } from '../services/notificationService';
 import Button from './Button';
 import Text from './Text';
-import Avatar from './Avatar';
 import TimeWheel from './TimeWheel';
 import DateWheel from './DateWheel';
 import RecurrencePicker, { recurrenceLabel } from './RecurrencePicker';
 import DayOfWeekPicker, { weekdaysLabel, nextWeekdayDate } from './DayOfWeekPicker';
+import BuddyPicker, { buddiesLabel } from './BuddyPicker';
 
 interface Props {
   visible: boolean;
@@ -42,7 +42,7 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
   const [recur, setRecur] = useState<Recurrence>('once');
   const [onceDate, setOnceDate] = useState<Date | null>(null);
   const [time, setTime] = useState<{ h: number; m: number } | null>(null);
-  const [assignTo, setAssignTo] = useState<string | null>(null);
+  const [assignTos, setAssignTos] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [weekdays, setWeekdays] = useState<number[]>([new Date().getDay()]);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -71,7 +71,7 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
           ? reminder.weekdays
           : [reminder.dueDate ? new Date(reminder.dueDate).getDay() : new Date().getDay()],
       );
-      setAssignTo(reminder.assignedTo);
+      setAssignTos(reminder.assignedTo ? [reminder.assignedTo] : []);
       setNotes(reminder.notes || '');
     } else {
       setTitle('');
@@ -79,18 +79,16 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
       setOnceDate(null);
       setTime({ h: 9, m: 0 });
       setWeekdays([new Date().getDay()]);
-      setAssignTo(defaultBuddyUid || null);
+      setAssignTos(defaultBuddyUid ? [defaultBuddyUid] : []);
       setNotes('');
     }
     setLoading(false);
   }, [visible, reminder, defaultBuddyUid]);
 
-  const currentBuddy = buddies.find(b => b.uid === assignTo);
-
   const canSave =
     !!title.trim() &&
     !!familyId &&
-    !!assignTo &&
+    assignTos.length > 0 &&
     (recur !== 'once' || !!onceDate) &&
     !!time &&
     !loading;
@@ -119,18 +117,20 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
     return `${h12}:${String(m).padStart(2, '0')} ${period}`;
   };
 
+  /** Save: edit mode patches the single existing doc, create mode writes one
+   *  reminder per selected buddy and schedules notifications for each. */
   const submit = async () => {
-    if (!canSave || !familyId || !assignTo) return;
+    if (!canSave || !familyId || assignTos.length === 0) return;
     setLoading(true);
     try {
       const dueDate = computeDueDate();
       const dateStr = new Date(dueDate).toLocaleDateString('en-CA');
       const timeStr = !time ? '' : `${String(time.h).padStart(2, '0')}:${String(time.m).padStart(2, '0')}`;
 
-      const data: Omit<Reminder, 'id' | 'createdAt'> = {
+      const buildData = (buddyUid: string): Omit<Reminder, 'id' | 'createdAt'> => ({
         familyId,
         title: title.trim(),
-        assignedTo: assignTo,
+        assignedTo: buddyUid,
         date: dateStr,
         time: timeStr,
         allDay: false,
@@ -140,37 +140,46 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
         notes: notes.trim(),
         createdBy: fbUser?.uid || '',
         ...(recur === 'weekly' ? { weekdays } : {}),
-      };
+      });
 
-      let docId: string;
       if (isEdit && reminder) {
+        // Edit mode is single-buddy. assignTos[0] is the (possibly changed) target.
+        const data = buildData(assignTos[0]);
         await reminderService.update(reminder.id, data);
-        docId = reminder.id;
-        // Re-schedule the notification (cancel old, schedule new)
         if (reminder.notificationId) {
           await cancelReminderNotification(reminder.notificationId);
         }
+        const buddy = buddies.find(b => b.uid === assignTos[0]);
+        const notificationId = await scheduleReminderNotification({
+          reminderId: reminder.id,
+          title: title.trim(),
+          body: buddy?.displayName ? `For ${buddy.displayName}` : '',
+          fireAt: dueDate,
+        });
+        if (notificationId) await reminderService.update(reminder.id, { notificationId });
+        if (Platform.OS === 'android') {
+          ToastAndroid.show(`✓ Updated "${title.trim()}"`, ToastAndroid.SHORT);
+        }
       } else {
-        const ref = await reminderService.add(data);
-        docId = ref.id;
-      }
-
-      // Schedule the local notification for the new dueDate
-      const notificationId = await scheduleReminderNotification({
-        reminderId: docId,
-        title: title.trim(),
-        body: currentBuddy?.displayName ? `For ${currentBuddy.displayName}` : '',
-        fireAt: dueDate,
-      });
-      if (notificationId) {
-        await reminderService.update(docId, { notificationId });
-      }
-
-      if (Platform.OS === 'android') {
-        ToastAndroid.show(
-          isEdit ? `✓ Updated "${title.trim()}"` : `✓ Reminder set for ${currentBuddy?.displayName ?? 'buddy'}`,
-          ToastAndroid.SHORT,
-        );
+        // Create mode — one Reminder doc per selected buddy.
+        for (const uid of assignTos) {
+          const data = buildData(uid);
+          const ref = await reminderService.add(data);
+          const buddy = buddies.find(b => b.uid === uid);
+          const notificationId = await scheduleReminderNotification({
+            reminderId: ref.id,
+            title: title.trim(),
+            body: buddy?.displayName ? `For ${buddy.displayName}` : '',
+            fireAt: dueDate,
+          });
+          if (notificationId) await reminderService.update(ref.id, { notificationId });
+        }
+        if (Platform.OS === 'android') {
+          const summary = assignTos.length === 1
+            ? `for ${buddies.find(b => b.uid === assignTos[0])?.displayName ?? 'buddy'}`
+            : `for ${assignTos.length} buddies`;
+          ToastAndroid.show(`✓ Reminder set ${summary}`, ToastAndroid.SHORT);
+        }
       }
       onClose();
     } catch (e: any) {
@@ -253,27 +262,15 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
             <RNText style={s.timeChev}>›</RNText>
           </TouchableOpacity>
 
-          <Text variant="sectionLabel" style={{ marginTop: 16 }}>Assign to</Text>
-          <TouchableOpacity style={s.assignBtn} onPress={() => setPickerOpen(true)}>
-            {currentBuddy ? (
-              <>
-                <Avatar emoji={currentBuddy.avatar || '👤'} accent={currentBuddy.accent} size="sm" />
-                <View style={{ flex: 1 }}>
-                  <Text variant="h3" style={{ fontSize: 15 }}>{currentBuddy.displayName}</Text>
-                  <Text variant="tiny">Tap to change</Text>
-                </View>
-                <RNText style={s.chev}>›</RNText>
-              </>
-            ) : (
-              <>
-                <View style={s.placeholderAv}><RNText style={{ fontSize: 22 }}>👤</RNText></View>
-                <View style={{ flex: 1 }}>
-                  <Text variant="h3" style={{ fontSize: 15, color: theme.colors.muted }}>Pick a buddy</Text>
-                  <Text variant="tiny">This reminder fires for them</Text>
-                </View>
-                <RNText style={s.chev}>›</RNText>
-              </>
-            )}
+          <Text variant="sectionLabel" style={{ marginTop: 16 }}>
+            {isEdit ? 'Assigned to' : 'Assign to'}
+          </Text>
+          <TouchableOpacity style={s.timeFieldBtn} onPress={() => setPickerOpen(true)}>
+            <RNText style={s.timeIcon}>👤</RNText>
+            <RNText style={s.timeText} numberOfLines={1}>
+              {buddiesLabel(assignTos, buddies)}
+            </RNText>
+            <RNText style={s.timeChev}>›</RNText>
           </TouchableOpacity>
 
           <Text variant="sectionLabel" style={{ marginTop: 16 }}>Notes (optional)</Text>
@@ -298,34 +295,14 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
           </View>
         </KeyboardAwareScrollView>
 
-        <Modal
+        <BuddyPicker
           visible={pickerOpen}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setPickerOpen(false)}
-        >
-          <Pressable style={s.sheetBackdrop} onPress={() => setPickerOpen(false)}>
-            <Pressable style={s.sheetCard} onPress={() => {}}>
-              <View style={s.sheetHandle} />
-              <Text variant="sectionLabel" style={{ marginTop: 0, marginBottom: 12 }}>Assign to</Text>
-              {buddies.length === 0 ? (
-                <Text variant="empty">No buddies yet — invite one first.</Text>
-              ) : (
-                buddies.map((b: User) => (
-                  <TouchableOpacity
-                    key={b.uid}
-                    style={[s.sheetRow, assignTo === b.uid && s.sheetRowActive]}
-                    onPress={() => { setAssignTo(b.uid); setPickerOpen(false); }}
-                  >
-                    <Avatar emoji={b.avatar || '👤'} accent={b.accent} size="sm" />
-                    <Text variant="h3" style={{ fontSize: 15, flex: 1 }}>{b.displayName}</Text>
-                    {assignTo === b.uid && <RNText style={s.sheetCheck}>✓</RNText>}
-                  </TouchableOpacity>
-                ))
-              )}
-            </Pressable>
-          </Pressable>
-        </Modal>
+          buddies={buddies}
+          value={assignTos}
+          single={isEdit}
+          onClose={() => setPickerOpen(false)}
+          onConfirm={(uids) => setAssignTos(uids)}
+        />
 
         <TimeWheel
           visible={wheelOpen}
@@ -394,35 +371,4 @@ const s = StyleSheet.create({
   timeIcon: { fontSize: 18 },
   timeText: { flex: 1, color: theme.colors.text, fontWeight: '700', fontSize: 16 },
   timeChev: { color: theme.colors.muted, fontSize: 22, fontWeight: '700' },
-  assignBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: theme.colors.card,
-    borderWidth: 1.5, borderColor: theme.colors.cardBorder,
-    borderRadius: theme.radius.lg,
-    padding: 12, marginTop: 6,
-  },
-  placeholderAv: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: theme.colors.bg,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  chev: { color: theme.colors.muted, fontSize: 22, fontWeight: '700' },
-  sheetBackdrop: { flex: 1, backgroundColor: '#00000099', justifyContent: 'flex-end' },
-  sheetCard: {
-    backgroundColor: theme.colors.card,
-    borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    padding: theme.spacing.lg, paddingBottom: theme.spacing.xxl,
-    borderTopWidth: 1, borderColor: theme.colors.cardBorder,
-  },
-  sheetHandle: {
-    width: 40, height: 4, borderRadius: 2,
-    backgroundColor: theme.colors.cardBorder,
-    alignSelf: 'center', marginBottom: 12,
-  },
-  sheetRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    padding: 12, borderRadius: theme.radius.lg, marginBottom: 4,
-  },
-  sheetRowActive: { backgroundColor: theme.colors.accent + '15' },
-  sheetCheck: { color: theme.colors.accent, fontWeight: '700', fontSize: 18 },
 });

@@ -16,6 +16,7 @@ export { default as TimeWheel } from './TimeWheel';
 export { default as DateWheel } from './DateWheel';
 export { default as RecurrencePicker, recurrenceLabel } from './RecurrencePicker';
 export { default as DayOfWeekPicker, weekdaysLabel, nextWeekdayDate } from './DayOfWeekPicker';
+export { default as BuddyPicker, buddiesLabel } from './BuddyPicker';
 export { default as Text } from './Text';
 export { default as AddBuddyForm } from './AddBuddyForm';
 export { default as SubmissionToasts } from './SubmissionToasts';
