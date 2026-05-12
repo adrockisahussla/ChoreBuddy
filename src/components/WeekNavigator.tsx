@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { View, TouchableOpacity, StyleSheet, Platform, Text as RNText } from 'react-native';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import React, { useMemo, useState } from 'react';
+import { View, TouchableOpacity, StyleSheet, Text as RNText } from 'react-native';
 import { theme } from '../theme';
 import { currentWeek, shiftWeek, getWeekOf } from '../utils/week';
+import DateWheel from './DateWheel';
 
 interface Props {
   weekOf: string;
@@ -12,14 +12,13 @@ interface Props {
 /**
  * WeekNavigator: top-row widget for switching between ISO weeks.
  *
- * Layout (option A):
+ * Layout:
  *   row 1:  [← prev]   May 11 – 17   [next →]   [📅]
  *   row 2:  "Past · tap to return to present"  (or "Current week", or
  *           "Future · tap to return to present")
  *
- * Date label collapses to "May 11 – 17" when both endpoints are in the
- * same month (drops the redundant second month name). Sublabel is its
- * own row so it never has to share width with the date.
+ * Calendar icon opens the same DateWheel sheet used by the rest of the
+ * app — picking any date sets the navigator to that date's ISO week.
  */
 export default function WeekNavigator({ weekOf, onChange }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -28,12 +27,17 @@ export default function WeekNavigator({ weekOf, onChange }: Props) {
     weekOf === cur ? 'current' : weekOf < cur ? 'past' : 'future';
   const label = weekRangeLabel(weekOf);
 
-  const onDateChange = (event: DateTimePickerEvent, selected?: Date) => {
-    if (Platform.OS === 'android') setPickerOpen(false);
-    if (event.type === 'set' && selected) {
-      onChange(getWeekOf(selected));
-    }
-  };
+  // Initial date for the picker: Monday of the currently displayed week.
+  const initialPickerDate = useMemo(() => mondayOfWeek(weekOf), [weekOf]);
+
+  // Allow picking any date within +/- 2 years of today.
+  const yearsBack = 2;
+  const minDate = useMemo(() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - yearsBack);
+    d.setMonth(0); d.setDate(1); d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
 
   return (
     <View style={s.card}>
@@ -67,15 +71,32 @@ export default function WeekNavigator({ weekOf, onChange }: Props) {
         </TouchableOpacity>
       )}
 
-      {pickerOpen && (
-        <DateTimePicker
-          value={new Date()}
-          mode="date"
-          onChange={onDateChange}
-        />
-      )}
+      <DateWheel
+        visible={pickerOpen}
+        initial={initialPickerDate}
+        minDate={minDate}
+        yearsBack={yearsBack}
+        yearsAhead={2}
+        onClose={() => setPickerOpen(false)}
+        onConfirm={(picked) => onChange(getWeekOf(picked))}
+      />
     </View>
   );
+}
+
+/** Monday (local) of the given ISO weekOf string. */
+function mondayOfWeek(weekOf: string): Date {
+  try {
+    const [y, w] = weekOf.split('-W').map(Number);
+    const jan4 = new Date(Date.UTC(y, 0, 4));
+    const jan4Day = (jan4.getUTCDay() + 6) % 7;
+    const w1Mon = new Date(jan4); w1Mon.setUTCDate(jan4.getUTCDate() - jan4Day);
+    const mon = new Date(w1Mon); mon.setUTCDate(w1Mon.getUTCDate() + (w - 1) * 7);
+    // Convert UTC midnight to a local Date with the same Y/M/D.
+    return new Date(mon.getUTCFullYear(), mon.getUTCMonth(), mon.getUTCDate());
+  } catch {
+    return new Date();
+  }
 }
 
 /**

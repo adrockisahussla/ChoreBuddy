@@ -14,6 +14,8 @@ interface Props {
   minDate?: Date;
   /** How many years forward to include in the year wheel. Default 5. */
   yearsAhead?: number;
+  /** How many years backward to include in the year wheel. Default 0. */
+  yearsBack?: number;
   onClose: () => void;
   onConfirm: (value: Date) => void;
 }
@@ -42,7 +44,7 @@ function daysInMonth(year: number, monthZeroIndexed: number): number {
  * when switching from Jan to Feb), clamping selection to the new max.
  */
 export default function DateWheel({
-  visible, initial, minDate, yearsAhead = 5, onClose, onConfirm,
+  visible, initial, minDate, yearsAhead = 5, yearsBack = 0, onClose, onConfirm,
 }: Props) {
   const today = useMemo(() => {
     const d = new Date();
@@ -55,11 +57,12 @@ export default function DateWheel({
   const startMonth = startDate.getMonth();
   const startDay = startDate.getDate();
 
-  // Year range: current year through current + yearsAhead.
+  // Year range: current - yearsBack through current + yearsAhead.
   const years = useMemo(() => {
     const baseYear = today.getFullYear();
-    return Array.from({ length: yearsAhead + 1 }, (_, i) => baseYear + i);
-  }, [today, yearsAhead]);
+    const start = baseYear - yearsBack;
+    return Array.from({ length: yearsBack + yearsAhead + 1 }, (_, i) => start + i);
+  }, [today, yearsBack, yearsAhead]);
 
   const [yIndex, setYIndex] = useState(Math.max(0, years.indexOf(startYear)));
   const [mIndex, setMIndex] = useState(startMonth);
