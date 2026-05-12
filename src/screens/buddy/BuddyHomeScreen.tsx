@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ScrollView, TouchableOpacity, StyleSheet, Text as RNText } from 'react-native';
+import { ScrollView, View, StyleSheet, Text as RNText } from 'react-native';
 import { theme } from '../../theme';
 import { useChores } from '../../hooks/useChores';
 import { useReminders } from '../../hooks/useReminders';
@@ -10,45 +10,50 @@ import { currentWeek } from '../../utils/week';
 import { Header, Screen, Card, Text, StatCard, SCREEN_BOTTOM_PAD } from '../../components';
 
 /**
- * BuddyHomeScreen — the home view a buddy lands on after sign-in.
- * Mirrors the standalone buddy-app.html surface in the shared design
- * system: greeting header, available-points hero card, four small stat
- * tiles, and a recent-activity feed scoped to this buddy.
+ * BuddyHomeScreen — buddy-side Home that mirrors the manager Home's
+ * visual rhythm (Summary section of stacked full-width StatCards
+ * + Recent Activity cards) so both roles feel like the same app.
+ *
+ *   • Available Points  — brand-pink StatCard, featured
+ *   • Today's Chores    — count of daily chores not yet approved
+ *   • Weekly Progress   — done/total for this week's weekly chores
+ *   • Reminders         — upcoming + always-counts-as-upcoming recurring
+ *   • Active Rewards    — rewards keyed to me, status=active
  */
 export default function BuddyHomeScreen({ navigation }: any) {
   const { fbUser, userDoc } = useCurrentUser();
   const myUid = fbUser?.uid;
   const myName = userDoc?.displayName || 'friend';
-  const accent = userDoc?.accent || theme.colors.purple;
 
   const { chores } = useChores();
   const { reminders } = useReminders();
   const { rewardItems } = useRewards();
   const { rewardClaims } = useRewardClaims();
 
-  const my = chores.filter(c => c.assignedTo === myUid);
   const ws = currentWeek();
+  const my = chores.filter(c => c.assignedTo === myUid);
+  const myReminders = reminders.filter(r => r.assignedTo === myUid);
+  const myRewards = rewardItems.filter(r => (r as any).kidId === myUid && r.status === 'active');
+  const myClaims = rewardClaims.filter(c => c.kidId === myUid);
 
   const todayChores = my.filter(c => c.recurrence === 'daily' && c.status !== 'approved').length;
   const weekly = my.filter(c => c.recurrence === 'weekly');
   const weeklyDone = weekly.filter(c => c.status === 'approved' && c.weekOf === ws).length;
 
-  const myReminders = reminders.filter(r => r.assignedTo === myUid);
+  // Recurring reminders always count; one-time only when in the future
   const upcomingRem = myReminders.filter(r => {
     if (r.recurrence === 'daily' || r.recurrence === 'weekly') return true;
     return (r.dueDate || 0) > Date.now();
   }).length;
 
-  const activeRewards = rewardItems.filter(r => (r as any).kidId === myUid && r.status === 'active').length;
-
+  // Available points = approved chore points − spent − pending claims
   const approved = my.filter(c => c.status === 'approved');
   const totalEarned = approved.reduce((s, c) => s + chorePoints(c), 0);
-  const myClaims = rewardClaims.filter(c => c.kidId === myUid);
   const spent = myClaims.filter(c => c.status === 'approved').reduce((s, c) => s + (c.cost || 0), 0);
   const pendingSpent = myClaims.filter(c => c.status === 'pending').reduce((s, c) => s + (c.cost || 0), 0);
   const available = totalEarned - spent - pendingSpent;
 
-  // Recent activity (last 4 events affecting this buddy)
+  // Recent activity for this buddy, sorted newest first
   const events: { ts: number; icon: string; text: string }[] = [];
   my.forEach(c => {
     if (c.completedAt && c.status === 'approved') {
@@ -60,60 +65,89 @@ export default function BuddyHomeScreen({ navigation }: any) {
     if (c.createdAt && c.status === 'todo') {
       events.push({ ts: c.createdAt, icon: '+', text: `New chore: "${c.title}"` });
     }
+    if (c.status === 'pending' && c.completedAt) {
+      events.push({ ts: c.completedAt, icon: '⏳', text: `Sent "${c.title}" for review` });
+    }
   });
   myClaims.forEach(c => {
     if (c.status === 'approved' && (c as any).resolvedAt) {
       events.push({ ts: (c as any).resolvedAt, icon: '🎉', text: `Got "${(c as any).rewardTitle}"!` });
     }
+    if (c.status === 'pending') {
+      events.push({ ts: c.claimedAt, icon: '💸', text: `Claimed "${(c as any).rewardTitle}"` });
+    }
   });
   const recent = events.sort((a, b) => b.ts - a.ts).slice(0, 4);
 
+  // Header badge: count "things to act on" — rejected chores + denied claims
+  const rejectedCount = my.filter(c => c.status === 'rejected').length;
+  const headerBadge = rejectedCount;
+
   return (
     <Screen contentStyle={{ padding: 0 }}>
-      <Header title={`Hi, ${myName}!`} onMenuPress={() => navigation.openDrawer?.()} />
+      <Header
+        title={`Hi, ${myName}!`}
+        badge={headerBadge}
+        onMenuPress={() => navigation.openDrawer?.()}
+      />
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
-        {/* Available points hero */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          style={[s.heroCard, { backgroundColor: accent }]}
+        <Text variant="sectionLabel" style={{ marginTop: 0 }}>Summary</Text>
+
+        <StatCard
+          num={available}
+          variant="brand"
+          title="Available Points"
+          meta={available > 0 ? 'Ready to spend!' : 'Do some chores to earn more'}
           onPress={() => navigation.navigate('MyRewards')}
-        >
-          <RNText style={s.heroNum}>{available}</RNText>
-          <View style={{ flex: 1 }}>
-            <RNText style={s.heroLabel}>Available Points</RNText>
-            <RNText style={s.heroSub}>
-              {available > 0 ? 'Ready to spend!' : 'Do some chores to earn more!'}
-            </RNText>
-          </View>
-          <RNText style={s.heroChev}>›</RNText>
-        </TouchableOpacity>
+        />
 
-        {/* 4 stat tiles */}
-        <View style={s.grid}>
-          <StatCard num={todayChores} title="Today's Chores" onPress={() => navigation.navigate('MyChores')} />
-          <StatCard num={`${weeklyDone}/${weekly.length}`} title="Weekly Progress" onPress={() => navigation.navigate('MyChores')} />
-          <StatCard num={activeRewards} title="Rewards" onPress={() => navigation.navigate('MyRewards')} />
-          <StatCard num={upcomingRem} title="Reminders" onPress={() => navigation.navigate('Reminders')} />
-        </View>
+        <StatCard
+          num={todayChores}
+          numColor={todayChores > 0 ? theme.colors.danger : theme.colors.blue}
+          title="Today's Chores"
+          meta={todayChores > 0 ? `${todayChores} to do` : 'All done — nice!'}
+          onPress={() => navigation.navigate('MyChores')}
+        />
 
-        {/* Recent activity */}
-        <Text variant="sectionLabel" style={{ marginTop: 18 }}>Recent activity</Text>
-        {recent.length === 0 ? (
-          <Text variant="empty">Nothing here yet — do a chore!</Text>
-        ) : (
-          recent.map((e, i) => (
-            <Card key={i} row padding={12} radius={theme.radius.lg} style={{ marginBottom: 6, gap: 10 }}>
-              <View style={s.eventIcon}>
-                <RNText style={s.eventIconText}>{e.icon}</RNText>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text variant="body" style={{ fontWeight: '700', fontSize: 14 }}>{e.text}</Text>
-                <Text variant="tiny" style={{ marginTop: 2 }}>
-                  {new Date(e.ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                </Text>
-              </View>
-            </Card>
-          ))
+        <StatCard
+          num={`${weeklyDone}/${weekly.length}`}
+          numColor={theme.colors.success}
+          title="Weekly Progress"
+          meta={weekly.length === 0 ? 'No weekly chores yet' : `${weekly.length - weeklyDone} left this week`}
+          onPress={() => navigation.navigate('MyChores')}
+        />
+
+        <StatCard
+          num={upcomingRem}
+          numColor={theme.colors.purple}
+          title="Reminders"
+          meta="Upcoming"
+          onPress={() => navigation.navigate('Reminders')}
+        />
+
+        <StatCard
+          num={myRewards.length}
+          numColor={theme.colors.warning}
+          title="Available Rewards"
+          meta={myRewards.length === 0 ? 'Ask your manager to set some up' : 'See what you can claim'}
+          onPress={() => navigation.navigate('MyRewards')}
+        />
+
+        {recent.length > 0 && (
+          <>
+            <Text variant="sectionLabel">Recent Activity</Text>
+            {recent.map((e, i) => (
+              <Card key={i} row radius={theme.radius.lg} padding={10} style={{ alignItems: 'flex-start', gap: 12, marginBottom: 6 }}>
+                <RNText style={s.activityIcon}>{e.icon}</RNText>
+                <View style={{ flex: 1 }}>
+                  <Text variant="body" style={{ fontSize: 13, lineHeight: 18 }}>{e.text}</Text>
+                  <Text variant="tiny" style={{ marginTop: 2 }}>
+                    {new Date(e.ts).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                  </Text>
+                </View>
+              </Card>
+            ))}
+          </>
         )}
       </ScrollView>
     </Screen>
@@ -121,28 +155,5 @@ export default function BuddyHomeScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-  heroCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    padding: 18,
-    borderRadius: theme.radius.xl,
-    marginBottom: theme.spacing.md,
-    ...theme.shadow.button,
-  },
-  heroNum: { color: '#fff', fontWeight: '900', fontSize: 36, minWidth: 50 },
-  heroLabel: { color: '#fff', fontWeight: '900', fontSize: 13, letterSpacing: 1, textTransform: 'uppercase' },
-  heroSub: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '600', marginTop: 2 },
-  heroChev: { color: '#fff', fontSize: 26, fontWeight: '900' },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  eventIcon: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: theme.colors.purpleSoft,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  eventIconText: { color: theme.colors.purple, fontWeight: '900', fontSize: 14 },
+  activityIcon: { fontSize: 16, width: 24, textAlign: 'center', paddingTop: 1 },
 });
