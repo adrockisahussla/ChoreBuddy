@@ -12,7 +12,7 @@ import { ConfirmProvider } from './src/components/ConfirmModal';
 import SubmissionToasts from './src/components/SubmissionToasts';
 import ReminderAlarmHost from './src/components/ReminderAlarmHost';
 import { CurrentUserProvider } from './src/hooks/useCurrentUser';
-import { TextScaleProvider, useTextScale } from './src/context/TextScaleContext';
+import { TextScaleProvider } from './src/context/TextScaleContext';
 import { getTextScale } from './src/utils/textScale';
 
 configureGoogleSignin();
@@ -50,13 +50,6 @@ function patchRNTextScaling() {
 }
 patchRNTextScaling();
 
-/** Inner — wraps the app tree in a key that bumps on scale change so the
- *  RNText render-patch's value gets picked up by every node. */
-function ScaledTree({ children }: { children: React.ReactNode }) {
-  const { epoch } = useTextScale();
-  return <React.Fragment key={epoch}>{children}</React.Fragment>;
-}
-
 export default function App() {
   useEffect(() => {
     resetWeeklyChores(firestore()).catch(e => console.warn('resetWeeklyChores failed', e));
@@ -70,11 +63,9 @@ export default function App() {
             <AuthGateway>
               <SubmissionToasts />
               <ConfirmProvider>
-                <ScaledTree>
-                  <NavigationContainer>
-                    <DrawerNavigator />
-                  </NavigationContainer>
-                </ScaledTree>
+                <NavigationContainer>
+                  <DrawerNavigator />
+                </NavigationContainer>
               </ConfirmProvider>
               <ReminderAlarmHost />
             </AuthGateway>
