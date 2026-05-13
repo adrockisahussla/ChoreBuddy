@@ -14,6 +14,7 @@ import ReminderAlarmHost from './src/components/ReminderAlarmHost';
 import { CurrentUserProvider } from './src/hooks/useCurrentUser';
 import { TextScaleProvider } from './src/context/TextScaleContext';
 import { getTextScale } from './src/utils/textScale';
+import { useReminderScheduling } from './src/hooks/useReminderScheduling';
 
 configureGoogleSignin();
 
@@ -50,6 +51,12 @@ function patchRNTextScaling() {
 }
 patchRNTextScaling();
 
+/** Mount inside AuthGateway so it can call useReminders (needs familyId). */
+function ReminderSchedulerHost() {
+  useReminderScheduling();
+  return null;
+}
+
 export default function App() {
   useEffect(() => {
     resetWeeklyChores(firestore()).catch(e => console.warn('resetWeeklyChores failed', e));
@@ -68,6 +75,7 @@ export default function App() {
                 </NavigationContainer>
               </ConfirmProvider>
               <ReminderAlarmHost />
+              <ReminderSchedulerHost />
             </AuthGateway>
           </TextScaleProvider>
         </CurrentUserProvider>
