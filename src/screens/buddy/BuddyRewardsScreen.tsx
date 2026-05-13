@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ScrollView, TouchableOpacity, StyleSheet, Platform, ToastAndroid, Text as RNText } from 'react-native';
+import { View, ScrollView, StyleSheet, Platform, ToastAndroid, Text as RNText } from 'react-native';
 import { theme } from '../../theme';
 import { useChores } from '../../hooks/useChores';
 import { useRewards, useRewardClaims } from '../../hooks/useRewards';
@@ -8,7 +8,7 @@ import { claimService } from '../../services/rewardService';
 import { chorePoints } from '../../utils/buddy';
 import { Reward } from '../../types';
 import {
-  Header, Screen, Card, Text, useConfirm, SCREEN_BOTTOM_PAD,
+  Header, Screen, Card, Text, StatCard, useConfirm, SCREEN_BOTTOM_PAD,
 } from '../../components';
 
 /**
@@ -18,9 +18,8 @@ import {
  * with status 'pending'; manager approves or denies elsewhere.
  */
 export default function BuddyRewardsScreen({ navigation }: any) {
-  const { fbUser, userDoc } = useCurrentUser();
+  const { fbUser } = useCurrentUser();
   const myUid = fbUser?.uid;
-  const accent = userDoc?.accent || theme.colors.accent;
 
   const { chores } = useChores();
   const { rewardItems } = useRewards();
@@ -66,17 +65,13 @@ export default function BuddyRewardsScreen({ navigation }: any) {
     <Screen contentStyle={{ padding: 0 }}>
       <Header title="Rewards" onMenuPress={() => navigation.openDrawer?.()} />
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
-        {/* Points hero */}
-        <View style={[s.heroCard, { backgroundColor: accent }]}>
-          <RNText style={s.heroNum}>{available}</RNText>
-          <View style={{ flex: 1 }}>
-            <RNText style={s.heroLabel}>Available Points</RNText>
-            <RNText style={s.heroSub}>
-              Earned {totalEarned} · Spent {spent}
-              {pendingSpent > 0 ? ` · ${pendingSpent} pending` : ''}
-            </RNText>
-          </View>
-        </View>
+        <Text variant="sectionLabel" style={{ marginTop: 0 }}>Wallet</Text>
+        <StatCard
+          num={available}
+          variant="brand"
+          title="Available Points"
+          meta={`Earned ${totalEarned} · Spent ${spent}${pendingSpent > 0 ? ` · ${pendingSpent} pending` : ''}`}
+        />
 
         {/* Available rewards */}
         <Text variant="sectionLabel" style={{ marginTop: 14 }}>Available Rewards</Text>
@@ -96,9 +91,7 @@ export default function BuddyRewardsScreen({ navigation }: any) {
                 onPress={() => onClaim(r)}
                 style={{ gap: 12, marginBottom: 6, opacity: canAfford ? 1 : 0.55 }}
               >
-                <View style={s.giftBubble}>
-                  <RNText style={{ fontSize: 20 }}>🎁</RNText>
-                </View>
+                <RNText style={s.rewardIcon}>🎁</RNText>
                 <View style={{ flex: 1 }}>
                   <Text variant="h3" style={{ fontSize: 15 }}>{r.title}</Text>
                   {!!r.description && (
@@ -107,10 +100,7 @@ export default function BuddyRewardsScreen({ navigation }: any) {
                     </Text>
                   )}
                 </View>
-                <View style={s.costPill}>
-                  <RNText style={s.costPillText}>{r.cost}</RNText>
-                  <RNText style={s.costPillLbl}>pts</RNText>
-                </View>
+                <Text style={s.costText}>{r.cost} pts</Text>
               </Card>
             );
           })
@@ -147,32 +137,8 @@ export default function BuddyRewardsScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-  heroCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    padding: 18,
-    borderRadius: theme.radius.xl,
-    ...theme.shadow.button,
-  },
-  heroNum: { color: '#fff', fontWeight: '900', fontSize: 36, minWidth: 50 },
-  heroLabel: { color: '#fff', fontWeight: '900', fontSize: 13, letterSpacing: 1, textTransform: 'uppercase' },
-  heroSub: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '600', marginTop: 2 },
-
-  giftBubble: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: theme.colors.purpleSoft,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  costPill: {
-    paddingHorizontal: 12, paddingVertical: 6,
-    backgroundColor: theme.colors.accent,
-    borderRadius: 999,
-    alignItems: 'center',
-    minWidth: 60,
-  },
-  costPillText: { color: '#fff', fontWeight: '900', fontSize: 16, lineHeight: 18 },
-  costPillLbl: { color: '#fff', fontWeight: '700', fontSize: 9, opacity: 0.85, marginTop: -1 },
+  rewardIcon: { fontSize: 22, width: 32, textAlign: 'center' },
+  costText: { color: theme.colors.accent, fontWeight: '900', fontSize: 15 },
 
   claimIcon: {
     width: 32, height: 32, borderRadius: 16,

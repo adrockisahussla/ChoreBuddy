@@ -7,7 +7,7 @@ import { useRewards, useRewardClaims } from '../../hooks/useRewards';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { chorePoints } from '../../utils/buddy';
 import { currentWeek } from '../../utils/week';
-import { Header, Screen, Card, Text, StatCard, SCREEN_BOTTOM_PAD } from '../../components';
+import { Header, Screen, Card, Avatar, Text, StatCard, SCREEN_BOTTOM_PAD } from '../../components';
 
 /**
  * BuddyHomeScreen — buddy-side Home that mirrors the manager Home's
@@ -91,7 +91,18 @@ export default function BuddyHomeScreen({ navigation }: any) {
         onMenuPress={() => navigation.openDrawer?.()}
       />
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
-        <Text variant="sectionLabel" style={{ marginTop: 0 }}>Summary</Text>
+        {/* Identity strip — mirrors the manager Home's "Buddies" section,
+            but for a single buddy: their own avatar + accent + name. */}
+        <Text variant="sectionLabel" style={{ marginTop: 0 }}>You</Text>
+        <Card row padding={14} radius={theme.radius.xl} style={{ gap: 12, marginBottom: theme.spacing.md }}>
+          <Avatar emoji={userDoc?.avatar || '👤'} accent={userDoc?.accent} size="md" />
+          <View style={{ flex: 1 }}>
+            <Text variant="h3" style={{ fontSize: 16 }}>{myName}</Text>
+            <Text variant="tiny" style={{ marginTop: 2 }}>Buddy</Text>
+          </View>
+        </Card>
+
+        <Text variant="sectionLabel">Summary</Text>
 
         <StatCard
           num={available}

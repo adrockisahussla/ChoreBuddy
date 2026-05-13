@@ -8,7 +8,7 @@ import { chorePoints, isOverdue } from '../../utils/buddy';
 import { currentWeek } from '../../utils/week';
 import { Chore } from '../../types';
 import {
-  Header, Screen, Card, Text, WeekNavigator, SCREEN_BOTTOM_PAD,
+  Header, Screen, Card, Text, Pill, WeekNavigator, SCREEN_BOTTOM_PAD,
 } from '../../components';
 
 /**
@@ -75,10 +75,7 @@ export default function BuddyChoresScreen({ navigation }: any) {
                 {approved.length} done · {todo.length} to do
               </Text>
             </View>
-            <View style={s.ptsBubble}>
-              <RNText style={s.ptsNum}>+{totalPts}</RNText>
-              <RNText style={s.ptsLbl}>pts</RNText>
-            </View>
+            <Pill label={`+${totalPts} pts`} active size="md" />
           </View>
         </Card>
 
@@ -102,13 +99,25 @@ export default function BuddyChoresScreen({ navigation }: any) {
                     {c.recurrence === 'daily' ? 'Daily' : c.recurrence === 'weekly' ? 'Weekly' : 'One-time'}
                     {' · '}
                     <Text style={{ color: theme.colors.accent, fontWeight: '900' }}>+{chorePoints(c)} pts</Text>
-                    {isOverdue(c) && (
-                      <Text style={{ color: theme.colors.danger, fontWeight: '900' }}> · OVERDUE</Text>
-                    )}
                   </Text>
-                  {c.status === 'rejected' && !!c.rejectionNote && (
-                    <View style={s.rejNote}>
-                      <RNText style={s.rejNoteText}>↻ {c.rejectionNote}</RNText>
+                  {(isOverdue(c) || (c.status === 'rejected' && !!c.rejectionNote)) && (
+                    <View style={s.tagRow}>
+                      {isOverdue(c) && (
+                        <Pill
+                          label="OVERDUE"
+                          size="sm"
+                          style={s.dangerPill}
+                          textStyle={s.dangerPillText}
+                        />
+                      )}
+                      {c.status === 'rejected' && !!c.rejectionNote && (
+                        <Pill
+                          label={`↻ ${c.rejectionNote}`}
+                          size="sm"
+                          style={s.dangerPill}
+                          textStyle={s.dangerPillText}
+                        />
+                      )}
                     </View>
                   )}
                 </View>
@@ -169,15 +178,6 @@ export default function BuddyChoresScreen({ navigation }: any) {
 
 const s = StyleSheet.create({
   summaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  ptsBubble: {
-    alignItems: 'center',
-    paddingHorizontal: 14, paddingVertical: 8,
-    backgroundColor: theme.colors.accent,
-    borderRadius: 999,
-    minWidth: 70,
-  },
-  ptsNum: { color: '#fff', fontWeight: '900', fontSize: 18 },
-  ptsLbl: { color: '#fff', fontWeight: '700', fontSize: 10, opacity: 0.85 },
 
   checkBtn: {
     width: 40, height: 40, borderRadius: 20,
@@ -203,12 +203,10 @@ const s = StyleSheet.create({
   },
   doneDotText: { color: theme.colors.success, fontSize: 18, fontWeight: '900' },
 
-  rejNote: {
-    marginTop: 6,
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+  dangerPill: {
     backgroundColor: theme.colors.dangerSoft,
-    borderRadius: 8,
-    paddingHorizontal: 8, paddingVertical: 4,
-    alignSelf: 'flex-start',
+    borderColor: theme.colors.danger,
   },
-  rejNoteText: { color: theme.colors.danger, fontWeight: '700', fontSize: 11 },
+  dangerPillText: { color: theme.colors.danger, fontWeight: '900' },
 });
