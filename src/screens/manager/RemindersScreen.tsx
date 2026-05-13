@@ -34,8 +34,18 @@ export default function RemindersScreen({ route, navigation }: any) {
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<Reminder | null>(null);
 
+  // Buddies often have legacy reminders saved before the bug-fix in
+  // commit 6cad0cd where Reminder.assignedTo was silently undefined.
+  // Treat an empty assignedTo as "assigned to everyone in the family" so
+  // those legacy docs don't vanish from the buddy view.
+  const matchesAssignee = (r: Reminder): boolean => {
+    if (!filterKid) return true;
+    if (!r.assignedTo) return true;          // legacy: show to everyone
+    return r.assignedTo === filterKid;
+  };
+
   const list = reminders
-    .filter(r => (filterKid ? r.assignedTo === filterKid : true))
+    .filter(matchesAssignee)
     .filter(r => {
       // weekly/daily reminders carry forward; one-time only on their week.
       if (r.recurrence === 'weekly' || r.recurrence === 'daily') {
@@ -45,6 +55,8 @@ export default function RemindersScreen({ route, navigation }: any) {
     })
     .slice()
     .sort((a, b) => (a.dueDate || 0) - (b.dueDate || 0));
+
+  const totalForMe = isBuddy ? reminders.filter(matchesAssignee).length : reminders.length;
 
   const onDelete = async (r: Reminder) => {
     const ok = await confirm({
@@ -97,7 +109,11 @@ export default function RemindersScreen({ route, navigation }: any) {
         )}
 
         {list.length === 0 ? (
-          <Text variant="empty">No reminders this week.</Text>
+          <Text variant="empty">
+            {totalForMe === 0
+              ? (isBuddy ? 'No reminders for you yet.' : 'No reminders this week.')
+              : `No reminders this week (${totalForMe} on other weeks).`}
+          </Text>
         ) : list.map(r => {
           const b = buddies.find(x => x.uid === r.assignedTo);
           const dueDate = new Date(r.dueDate || Date.now());
