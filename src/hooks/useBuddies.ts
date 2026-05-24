@@ -4,15 +4,17 @@ import { useFamilyId } from './useFamilyId';
 
 const ACCENTS = ['#8b5cf6', '#f97316', '#22c55e', '#3b82f6', '#ec4899', '#eab308'];
 
-/** All buddies (role='buddy' users) in the current user's family. */
+/** All members of the current user's family. Originally returned only
+ *  role='buddy' users; now returns everyone so anyone can assign
+ *  chores/reminders to anyone else. Name kept for call-site compatibility. */
 export function useBuddies() {
   const familyId = useFamilyId();
   const { items, loading } = useFirestoreCollection<User>(
     'users',
-    q => familyId ? q.where('familyId', '==', familyId).where('role', '==', 'buddy') : null,
+    q => familyId ? q.where('familyId', '==', familyId) : null,
     [familyId]
   );
-  // Stable sort + assign a fallback accent based on order if the user doc lacks one.
+  // Stable sort by createdAt; fallback accent based on order if missing.
   const buddies = items
     .slice()
     .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))

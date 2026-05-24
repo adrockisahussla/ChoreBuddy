@@ -2,7 +2,7 @@ export type Recurrence = 'daily' | 'weekly' | 'once';
 export type ChoreStatus = 'todo' | 'pending' | 'approved' | 'rejected';
 export type RewardStatus = 'requested' | 'active' | 'archived';
 export type ClaimStatus = 'pending' | 'approved' | 'denied';
-export type InviteStatus = 'pending' | 'accepted';
+export type InviteStatus = 'pending' | 'accepted' | 'declined' | 'blocked';
 export type RepeatMode = 'never' | 'daily' | 'weekly' | 'monthly' | 'yearly';
 export type Role = 'manager' | 'buddy';
 
@@ -22,6 +22,13 @@ export interface Chore {
   createdAt: number;
   /** For weekly recurrence — which day(s) of week (0=Sun..6=Sat). */
   weekdays?: number[];
+  /** Minutes before dueDate to fire a pre-due alarm. null/undefined = none. */
+  remindBeforeMinutes?: number | null;
+  /** uid of the family member who created/assigned this chore. */
+  createdBy?: string;
+  /** True once the assigner has been notified of a submitted chore.
+   *  Cleared whenever the buddy re-submits. */
+  notifiedAssigner?: boolean;
 }
 
 export interface ChorePoolItem {

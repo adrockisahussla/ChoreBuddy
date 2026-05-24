@@ -6,10 +6,9 @@ const familiesCol = () => firestore().collection('families');
 
 export const userService = {
   getByUid: async (uid: string): Promise<User | null> => {
-    const snap = await usersCol().where('uid', '==', uid).limit(1).get();
-    if (snap.empty) return null;
-    const d = snap.docs[0];
-    return { id: d.id, ...(d.data() as any) } as User;
+    const doc = await usersCol().doc(uid).get();
+    if (!doc.exists()) return null;
+    return { id: doc.id, ...(doc.data() as any) } as User;
   },
 
   /** First sign-in becomes a Manager of a brand-new family. */
@@ -31,8 +30,8 @@ export const userService = {
       email: email || undefined,
       createdAt: Date.now(),
     };
-    const ref = await usersCol().add(data);
-    return { id: ref.id, ...data };
+    await usersCol().doc(uid).set(data);
+    return { id: uid, ...data };
   },
 
   /** Used by invite-acceptance flow (Phase 6). */
@@ -53,19 +52,19 @@ export const userService = {
       avatar,
       createdAt: Date.now(),
     };
-    const ref = await usersCol().add(data);
-    return { id: ref.id, ...data };
+    await usersCol().doc(uid).set(data);
+    return { id: uid, ...data };
   },
 
   update: (id: string, patch: Partial<User>) =>
     usersCol().doc(id).update(patch),
 
-  /**
-   * Remove a buddy's user doc (i.e. detach them from the family).
-   * Their Firebase Auth account is untouched — they could still sign in,
-   * they just won't be associated with this family. Existing chores and
-   * rewards assigned to them become orphaned (assignedTo points to an
-   * unknown uid); cleaning those up is left to a separate sweep.
-   */
+  /** Idempotent upsert — creates the doc if missing, merges fields if present.
+   *  Used by the accept-invite flow which may run against a uid that has no
+   *  user doc yet (e.g. when an Auth account was recreated and the prior
+   *  Firestore doc is orphaned at the old uid). */
+  upsert: (id: string, patch: Partial<User> & { uid: string }) =>
+    usersCol().doc(id).set(patch, { merge: true }),
+
   remove: (id: string) => usersCol().doc(id).delete(),
 };

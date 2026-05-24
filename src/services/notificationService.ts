@@ -1,6 +1,8 @@
 import notifee, {
+  AndroidCategory,
   AndroidImportance,
   AndroidNotificationSetting,
+  AndroidVisibility,
   TriggerType,
   TimestampTrigger,
 } from '@notifee/react-native';
@@ -24,6 +26,32 @@ async function ensureChannel(): Promise<void> {
     sound: 'default',
   });
   channelEnsured = true;
+}
+
+/**
+ * Display a foreground notification telling a manager that a chore was
+ * just submitted for their approval. Fired by usePendingChoreNotifier
+ * when a chore in their family flips to status='pending'.
+ */
+export async function notifyChoreSubmittedForApproval(opts: {
+  choreId: string;
+  choreTitle: string;
+  buddyName?: string;
+}): Promise<void> {
+  await ensureChannel();
+  await notifee.displayNotification({
+    id: `chore-pending-${opts.choreId}`,
+    title: '✋ Chore awaiting approval',
+    body: opts.buddyName
+      ? `${opts.buddyName} submitted "${opts.choreTitle}"`
+      : `"${opts.choreTitle}" was submitted for review`,
+    android: {
+      channelId: CHANNEL_ID,
+      importance: AndroidImportance.HIGH,
+      pressAction: { id: 'default' },
+      smallIcon: 'ic_launcher',
+    },
+  });
 }
 
 /**
@@ -93,9 +121,11 @@ export async function scheduleReminderNotification({
         android: {
           channelId: CHANNEL_ID,
           smallIcon: 'ic_launcher',
+          category: AndroidCategory.ALARM,
+          importance: AndroidImportance.HIGH,
+          visibility: AndroidVisibility.PUBLIC,
           pressAction: { id: 'default', launchActivity: 'default' },
-          // For now: standard notification. Phase 2 wires up
-          // fullScreenAction when the user toggles "alarm-style" in Settings.
+          fullScreenAction: { id: 'default', launchActivity: 'default' },
         },
       },
       trigger,
@@ -103,6 +133,62 @@ export async function scheduleReminderNotification({
     return id;
   } catch (e) {
     console.warn('scheduleReminderNotification failed', e);
+    return '';
+  }
+}
+
+interface ChoreScheduleArgs {
+  /** Firestore chore doc id. */
+  choreId: string;
+  /** 'pre' fires before due, 'overdue' fires at the due time. */
+  phase: 'pre' | 'overdue';
+  title: string;
+  fireAt: number;
+}
+
+/**
+ * Schedule a chore alarm. Same alarm-style routing as reminders, but
+ * data payload carries kind='chore' so the overlay can deep-link to
+ * the chore screen. Stable id: `chore:<docId>:<phase>`.
+ */
+export async function scheduleChoreNotification({
+  choreId, phase, title, fireAt,
+}: ChoreScheduleArgs): Promise<string> {
+  if (fireAt <= Date.now()) return '';
+  try {
+    await ensureChannel();
+    await requestNotificationPermission();
+
+    const trigger: TimestampTrigger = {
+      type: TriggerType.TIMESTAMP,
+      timestamp: fireAt,
+      alarmManager: { allowWhileIdle: true },
+    };
+
+    const emoji = phase === 'overdue' ? '⏰' : '🔔';
+    const headline = phase === 'overdue' ? `OVERDUE: ${title}` : title;
+
+    const id = await notifee.createTriggerNotification(
+      {
+        id: `chore:${choreId}:${phase}`,
+        title: `${emoji} ${headline}`,
+        body: phase === 'overdue' ? 'This chore is now due.' : 'Coming up soon.',
+        data: { choreId, kind: 'chore', phase },
+        android: {
+          channelId: CHANNEL_ID,
+          smallIcon: 'ic_launcher',
+          category: AndroidCategory.ALARM,
+          importance: AndroidImportance.HIGH,
+          visibility: AndroidVisibility.PUBLIC,
+          pressAction: { id: 'default', launchActivity: 'default' },
+          fullScreenAction: { id: 'default', launchActivity: 'default' },
+        },
+      },
+      trigger,
+    );
+    return id;
+  } catch (e) {
+    console.warn('scheduleChoreNotification failed', e);
     return '';
   }
 }
@@ -117,16 +203,64 @@ export async function cancelReminderNotification(id: string): Promise<void> {
   }
 }
 
+export type AlarmKind = 'reminder' | 'chore';
+export interface AlarmEvent { kind: AlarmKind; id: string; phase?: 'pre' | 'overdue' }
+
 /**
- * Subscribe to foreground notification events. Call once at app startup
- * (e.g. in App.tsx) to wire reminders firing while the app is open
- * into the in-app full-screen alarm overlay.
+ * Subscribe to foreground notification events. Fires on both DELIVERED
+ * (alarm rings while app is open) and PRESS (user / fullScreenAction
+ * brings the app forward). Handles both reminder and chore kinds.
  */
-export function onForegroundReminderEvent(handler: (reminderId: string) => void): () => void {
+export function onForegroundAlarmEvent(handler: (event: AlarmEvent) => void): () => void {
   return notifee.onForegroundEvent(({ type, detail }) => {
-    if (type === 1 /* DELIVERED */ && detail.notification?.data?.kind === 'reminder') {
-      const reminderId = detail.notification.data.reminderId as string;
-      if (reminderId) handler(reminderId);
+    // EventType.PRESS = 1, EventType.DELIVERED = 3
+    if (type !== 1 && type !== 3) return;
+    const data = detail.notification?.data;
+    if (!data?.kind) return;
+    if (data.kind === 'reminder' && typeof data.reminderId === 'string') {
+      handler({ kind: 'reminder', id: data.reminderId });
+    } else if (data.kind === 'chore' && typeof data.choreId === 'string') {
+      handler({
+        kind: 'chore',
+        id: data.choreId,
+        phase: data.phase === 'overdue' ? 'overdue' : 'pre',
+      });
     }
   });
+}
+
+/** Back-compat shim — still exported as `onForegroundReminderEvent` for
+ *  existing callers; only fires for reminder kind. */
+export function onForegroundReminderEvent(handler: (reminderId: string) => void): () => void {
+  return onForegroundAlarmEvent(e => { if (e.kind === 'reminder') handler(e.id); });
+}
+
+/**
+ * If the app was cold-started from an alarm notification (tap or
+ * fullScreenAction), return the alarm shape so the overlay can be
+ * rendered on mount. Returns null when the app was opened normally.
+ */
+export async function getInitialAlarmEvent(): Promise<AlarmEvent | null> {
+  try {
+    const initial = await notifee.getInitialNotification();
+    const data = initial?.notification?.data;
+    if (!data?.kind) return null;
+    if (data.kind === 'reminder' && typeof data.reminderId === 'string') {
+      return { kind: 'reminder', id: data.reminderId };
+    }
+    if (data.kind === 'chore' && typeof data.choreId === 'string') {
+      return {
+        kind: 'chore',
+        id: data.choreId,
+        phase: data.phase === 'overdue' ? 'overdue' : 'pre',
+      };
+    }
+  } catch {}
+  return null;
+}
+
+/** Back-compat shim — reminders only. */
+export async function getInitialReminderId(): Promise<string | null> {
+  const e = await getInitialAlarmEvent();
+  return e?.kind === 'reminder' ? e.id : null;
 }

@@ -99,7 +99,10 @@ export default function BuddyPicker({
                       </View>
                     )}
                     <Avatar emoji={b.avatar || '👤'} accent={b.accent} size="sm" />
-                    <RNText style={s.title} numberOfLines={1}>{b.displayName}</RNText>
+                    <View style={{ flex: 1 }}>
+                      <RNText style={s.title} numberOfLines={1}>{b.displayName}</RNText>
+                      {!!b.email && <RNText style={s.email} numberOfLines={1}>{b.email}</RNText>}
+                    </View>
                     {single && active && <RNText style={s.singleCheck}>✓</RNText>}
                   </TouchableOpacity>
                 );
@@ -201,7 +204,8 @@ const s = StyleSheet.create({
     borderColor: theme.colors.accent,
   },
   checkboxTick: { color: '#ffffff', fontWeight: '900', fontSize: 14, lineHeight: 16 },
-  title: { flex: 1, color: theme.colors.text, fontWeight: '700', fontSize: 16 },
+  title: { color: theme.colors.text, fontWeight: '700', fontSize: 16 },
+  email: { color: theme.colors.muted, fontSize: 11, fontWeight: '600', marginTop: 2 },
   singleCheck: { color: theme.colors.accent, fontSize: 20, fontWeight: '900' },
 
   actions: { flexDirection: 'row', gap: 10, marginTop: 16 },

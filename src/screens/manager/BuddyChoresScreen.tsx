@@ -1,32 +1,62 @@
 import React, { useState } from 'react';
-import { View, ScrollView, TouchableOpacity, StyleSheet, Modal, TextInput, KeyboardAvoidingView, Platform, ToastAndroid, Text as RNText } from 'react-native';
+import { View, ScrollView, TouchableOpacity, StyleSheet, Modal, TextInput, KeyboardAvoidingView, Platform, ToastAndroid, Pressable, Text as RNText } from 'react-native';
 import { useChores } from '../../hooks/useChores';
 import { useBuddies } from '../../hooks/useBuddies';
+import { useFamilyMembers } from '../../hooks/useFamilyMembers';
 import { theme } from '../../theme';
 import { chorePoints, isOverdue, buddyLabel } from '../../utils/buddy';
+import { statusLabel, statusPillStyle } from '../../utils/choreStatus';
 import { currentWeek } from '../../utils/week';
 import { choreService } from '../../services/choreService';
-import { Header, Screen, Card, Text, WeekNavigator, useConfirm, SCREEN_BOTTOM_PAD } from '../../components';
+import { Chore } from '../../types';
+import { Header, Screen, Text, WeekNavigator, useConfirm, FAB, ChoreFormSheet, SCREEN_BOTTOM_PAD } from '../../components';
+
+type ChoreTab = 'pending' | 'todo' | 'done';
 
 export default function BuddyChoresScreen({ route, navigation }: any) {
   const buddyUid: string = route.params?.kidId || '';
   const { chores } = useChores();
   const { buddies } = useBuddies();
+  const { members } = useFamilyMembers();
+  const assignerName = (uid?: string) =>
+    uid ? (members.find(m => m.uid === uid)?.displayName || 'someone') : 'someone';
   const [selectedWeek, setSelectedWeek] = useState<string>(currentWeek());
-  const my = chores
+  const initialTabParam = route.params?.tab;
+  const initialTab: ChoreTab =
+    initialTabParam === 'todo' || initialTabParam === 'done' || initialTabParam === 'pending'
+      ? initialTabParam
+      : 'pending';
+  const [tab, setTab] = useState<ChoreTab>(initialTab);
+
+  const inScope = chores
     .filter(c => c.assignedTo === buddyUid)
     .filter(c => {
-      // weekly/daily chores carry forward — visible from creation onward.
-      // one-time chores show only on their specific week.
       if (c.recurrence === 'weekly' || c.recurrence === 'daily') {
         return (c.weekOf || '') <= selectedWeek;
       }
       return c.weekOf === selectedWeek;
+    });
+
+  const pendingCount = inScope.filter(c => c.status === 'pending').length;
+  const todoCount = inScope.filter(c => c.status === 'todo' || c.status === 'rejected').length;
+
+  const tabChores = inScope
+    .filter(c => {
+      if (tab === 'pending') return c.status === 'pending';
+      if (tab === 'done') return c.status === 'approved';
+      return c.status === 'todo' || c.status === 'rejected';
     })
-    .sort((a, b) => (a.dueDate || 0) - (b.dueDate || 0));
+    .sort((a, b) => {
+      // overdue first within todo tab; otherwise by dueDate
+      const aOver = (a.dueDate || 0) < Date.now() ? 0 : 1;
+      const bOver = (b.dueDate || 0) < Date.now() ? 0 : 1;
+      const r = aOver - bOver;
+      return r !== 0 ? r : (a.dueDate || 0) - (b.dueDate || 0);
+    });
 
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectionNote, setRejectionNote] = useState('');
+  const [addChoreOpen, setAddChoreOpen] = useState(false);
   const confirm = useConfirm();
 
   const onDelete = async (c: any) => {
@@ -59,46 +89,103 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
     closeReject();
   };
 
-  const renderStatus = (st: string) => {
-    if (st === 'pending') return <RNText style={[s.statusPill, { backgroundColor: '#f59e0b33', color: '#f59e0b' }]}>Pending</RNText>;
-    if (st === 'approved') return <RNText style={[s.statusPill, { backgroundColor: '#22c55e33', color: '#22c55e' }]}>Done</RNText>;
-    if (st === 'rejected') return <RNText style={[s.statusPill, { backgroundColor: '#ef444433', color: '#ef4444' }]}>Redo</RNText>;
-    return <RNText style={[s.statusPill, { backgroundColor: '#7b84a833', color: theme.colors.muted }]}>Todo</RNText>;
-  };
-
   return (
     <Screen contentStyle={{ padding: 0 }}>
       <Header title={`${buddyLabel(buddyUid, buddies)} · Chores`} onBackPress={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
         <WeekNavigator weekOf={selectedWeek} onChange={setSelectedWeek} />
-        {my.length === 0 ? (
-          <Text variant="empty">No chores this week.</Text>
-        ) : my.map(c => (
-          <Card key={c.id} row variant={isOverdue(c) ? 'warning' : 'default'} radius={theme.radius.lg} style={{ gap: 8 }}>
-            <View style={{ flex: 1 }}>
-              <Text variant="h3" style={{ fontSize: 14 }}>{c.title}</Text>
-              <Text variant="tiny" style={{ marginTop: 2, fontSize: 11 }}>
-                +{chorePoints(c)} pts · {c.recurrence}{isOverdue(c) ? ' · ⚠ Overdue' : ''}
-              </Text>
-            </View>
-            {renderStatus(c.status)}
-            {c.status === 'pending' ? (
-              <View style={{ flexDirection: 'row', gap: 6, marginLeft: 8 }}>
-                <TouchableOpacity style={s.approve} onPress={() => choreService.update(c.id, { status: 'approved', completedAt: Date.now() })}>
-                  <RNText style={s.iconText}>✓</RNText>
+
+        <View style={s.tabRow}>
+          {(() => {
+            const tabs = [
+              { key: 'pending' as const, label: 'Pending', count: pendingCount },
+              { key: 'todo' as const, label: 'Todo', count: todoCount },
+              { key: 'done' as const, label: 'Done', count: undefined as number | undefined },
+            ];
+            return tabs.map((t, i) => {
+              const active = tab === t.key;
+              const isFirst = i === 0;
+              const isLast = i === tabs.length - 1;
+              return (
+                <TouchableOpacity
+                  key={t.key}
+                  style={[
+                    s.tabBtn,
+                    active && s.tabBtnActive,
+                    isFirst && s.tabBtnFirst,
+                    isLast && s.tabBtnLast,
+                    !isFirst && s.tabBtnNoLeftBorder,
+                  ]}
+                  onPress={() => setTab(t.key)}
+                  activeOpacity={0.7}
+                >
+                  <RNText style={[s.tabLabel, active && s.tabLabelActive]}>{t.label}</RNText>
+                  {t.count !== undefined && t.count > 0 && (
+                    <View style={s.tabBadge}>
+                      <RNText style={s.tabBadgeText}>{t.count}</RNText>
+                    </View>
+                  )}
                 </TouchableOpacity>
+              );
+            });
+          })()}
+        </View>
+
+        {tabChores.length === 0 ? (
+          <Text variant="empty" style={{ padding: 40 }}>
+            {tab === 'pending' ? 'Nothing waiting for review.' : tab === 'done' ? 'No completed chores yet.' : 'No active chores.'}
+          </Text>
+        ) : tabChores.map(c => {
+          const overdue = isOverdue(c);
+          const isDone = c.status === 'approved';
+          const approve = () => choreService.update(c.id, { status: 'approved', completedAt: Date.now() });
+          return (
+            <View key={c.id} style={[s.row, overdue && s.rowOverdue]}>
+              {isDone ? (
+                <View style={[s.checkbox, s.checkboxDone]}>
+                  <RNText style={s.checkboxDoneMark}>✓</RNText>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  onPress={approve}
+                  hitSlop={8}
+                  activeOpacity={0.6}
+                  style={[s.checkbox, c.status === 'pending' && s.checkboxPending]}
+                />
+              )}
+
+              <View style={{ flex: 1 }}>
+                <Text variant="h3" style={{ fontSize: 14, ...(isDone ? { textDecorationLine: 'line-through' as const } : {}) }}>{c.title}</Text>
+                <Text variant="tiny" style={{ marginTop: 2, fontSize: 11 }}>
+                  +{chorePoints(c)} pts · {c.recurrence}{overdue ? ' · ⚠ Overdue' : ''}
+                  {c.status === 'pending' ? ' · awaiting your approval' : ''}
+                </Text>
+                <Text variant="tiny" style={{ marginTop: 2, fontSize: 11, opacity: 0.7 }}>
+                  Assigned by {assignerName(c.createdBy)}
+                </Text>
+              </View>
+
+              {c.status === 'pending' ? (
                 <TouchableOpacity style={s.reject} onPress={() => openReject(c.id)}>
                   <RNText style={s.iconText}>✕</RNText>
                 </TouchableOpacity>
-              </View>
-            ) : (
-              <TouchableOpacity style={s.delBtn} onPress={() => onDelete(c)} hitSlop={10}>
-                <RNText style={{ fontSize: 16 }}>🗑</RNText>
-              </TouchableOpacity>
-            )}
-          </Card>
-        ))}
+              ) : (
+                <Pressable style={s.delBtn} onPress={() => onDelete(c)} hitSlop={10}>
+                  <RNText style={{ fontSize: 14 }}>🗑</RNText>
+                </Pressable>
+              )}
+            </View>
+          );
+        })}
       </ScrollView>
+
+      <FAB onPress={() => setAddChoreOpen(true)} />
+
+      <ChoreFormSheet
+        visible={addChoreOpen}
+        onClose={() => setAddChoreOpen(false)}
+        defaultBuddyUid={buddyUid}
+      />
 
       <Modal visible={rejectingId !== null} transparent animationType="fade" onRequestClose={closeReject}>
         <KeyboardAvoidingView
@@ -137,11 +224,53 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
 }
 
 const s = StyleSheet.create({
+  tabRow: { flexDirection: 'row', marginVertical: 12 },
+  tabBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 10, paddingHorizontal: 8,
+    backgroundColor: theme.colors.card,
+    borderWidth: 1, borderColor: theme.colors.cardBorder,
+  },
+  tabBtnFirst: { borderTopLeftRadius: 10, borderBottomLeftRadius: 10 },
+  tabBtnLast: { borderTopRightRadius: 10, borderBottomRightRadius: 10 },
+  tabBtnNoLeftBorder: { borderLeftWidth: 0 },
+  tabBtnActive: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
+  tabLabel: { color: theme.colors.text, fontWeight: '700', fontSize: 13 },
+  tabLabelActive: { color: '#fff' },
+  tabBadge: {
+    minWidth: 20, paddingHorizontal: 5, paddingVertical: 1,
+    borderRadius: 4,
+    backgroundColor: theme.colors.danger,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  tabBadgeText: { color: '#fff', fontWeight: '900', fontSize: 11 },
+
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: theme.colors.card, borderWidth: 1, borderColor: theme.colors.cardBorder, borderRadius: theme.radius.lg, padding: 12, marginBottom: 6 },
+  rowOverdue: { borderColor: theme.colors.danger, borderWidth: 2, backgroundColor: theme.colors.danger + '10' },
+  rowPressed: { opacity: 0.7 },
+
+  checkbox: {
+    width: 28, height: 28, borderRadius: 14,
+    borderWidth: 2, borderColor: theme.colors.accent,
+    backgroundColor: theme.colors.card,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  checkboxPending: {
+    borderColor: theme.colors.warning,
+    backgroundColor: theme.colors.warningSoft,
+  },
+  checkboxDone: {
+    borderColor: theme.colors.success,
+    backgroundColor: theme.colors.success,
+  },
+  checkboxDoneMark: { color: '#fff', fontSize: 16, fontWeight: '900', lineHeight: 18 },
+
   statusPill: { fontSize: 10, fontWeight: '900', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, overflow: 'hidden' },
   approve: { width: 30, height: 30, borderRadius: 15, backgroundColor: theme.colors.success, justifyContent: 'center', alignItems: 'center' },
   reject: { width: 30, height: 30, borderRadius: 15, backgroundColor: theme.colors.danger, justifyContent: 'center', alignItems: 'center' },
   iconText: { color: '#fff', fontWeight: '900', fontSize: 14 },
-  delBtn: { width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: theme.colors.danger + '60', backgroundColor: theme.colors.danger + '15', justifyContent: 'center', alignItems: 'center', marginLeft: 4 },
+  delBtn: { width: 32, height: 32, borderRadius: 16, borderWidth: 1.5, borderColor: theme.colors.danger + '60', backgroundColor: theme.colors.danger + '15', justifyContent: 'center', alignItems: 'center' },
+
   modalBackdrop: { flex: 1, backgroundColor: '#00000099', justifyContent: 'center', alignItems: 'center', padding: theme.spacing.lg },
   modalCard: { width: '100%', maxWidth: 400, backgroundColor: theme.colors.card, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.cardBorder, padding: theme.spacing.lg },
   modalInput: { backgroundColor: theme.colors.bg, borderWidth: 1, borderColor: theme.colors.cardBorder, borderRadius: theme.radius.lg, padding: 12, color: theme.colors.text, fontSize: 14, minHeight: 80, textAlignVertical: 'top' },

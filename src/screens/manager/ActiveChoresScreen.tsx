@@ -4,10 +4,13 @@ import { useChores } from '../../hooks/useChores';
 import { useBuddies } from '../../hooks/useBuddies';
 import { theme } from '../../theme';
 import { chorePoints, isOverdue, POINTS_PER } from '../../utils/buddy';
+import { statusLabel, statusPillStyle } from '../../utils/choreStatus';
 import { choreService } from '../../services/choreService';
 import { Chore, Recurrence } from '../../types';
-import { Header, Screen, Card, Avatar, Pill, Button, Text, WeekNavigator, SCREEN_BOTTOM_PAD } from '../../components';
+import { Header, Screen, Card, Avatar, Pill, Button, Text, WeekNavigator, TimeWheel, SCREEN_BOTTOM_PAD } from '../../components';
 import { currentWeek } from '../../utils/week';
+
+type ChoreTab = 'pending' | 'todo' | 'done';
 
 export default function ActiveChoresScreen({ navigation }: any) {
   const { chores } = useChores();
@@ -16,6 +19,7 @@ export default function ActiveChoresScreen({ navigation }: any) {
   const [rejectionNote, setRejectionNote] = useState('');
   const [editing, setEditing] = useState<Chore | null>(null);
   const [selectedWeek, setSelectedWeek] = useState<string>(currentWeek());
+  const [tab, setTab] = useState<ChoreTab>('pending');
 
   const openReject = (id: string) => { setRejectingId(id); setRejectionNote(''); };
   const closeReject = () => { setRejectingId(null); setRejectionNote(''); };
@@ -40,27 +44,85 @@ export default function ActiveChoresScreen({ navigation }: any) {
     }
   };
 
-  const openChores = chores
-    .filter(c => c.status !== 'approved')
-    .filter(c => {
-      if (c.recurrence === 'weekly' || c.recurrence === 'daily') {
-        return (c.weekOf || '') <= selectedWeek;
-      }
-      return c.weekOf === selectedWeek;
-    });
-  const totalOpen = openChores.length;
+  const openChores = chores.filter(c => {
+    if (c.recurrence === 'weekly' || c.recurrence === 'daily') {
+      return (c.weekOf || '') <= selectedWeek;
+    }
+    return c.weekOf === selectedWeek;
+  });
+  const pendingCount = openChores.filter(c => c.status === 'pending').length;
+  const todoCount = openChores.filter(c => c.status === 'todo' || c.status === 'rejected').length;
+  const doneCount = openChores.filter(c => c.status === 'approved').length;
+
+  const tabChores = openChores.filter(c => {
+    if (tab === 'pending') return c.status === 'pending';
+    if (tab === 'done') return c.status === 'approved';
+    return c.status === 'todo' || c.status === 'rejected';
+  });
+
+  /** Within "todo" tab, sort overdue first; within others, by dueDate. */
+  const rankChore = (c: Chore): number => {
+    const overdue = (c.dueDate || 0) < Date.now();
+    if (c.status === 'rejected') return overdue ? 0 : 2;
+    if (c.status === 'todo') return overdue ? 0 : 1;
+    return 3;
+  };
 
   return (
     <Screen contentStyle={{ padding: 0 }}>
       <Header title="Active Chores" onBackPress={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
         <WeekNavigator weekOf={selectedWeek} onChange={setSelectedWeek} />
-        {totalOpen === 0 && (
-          <Text variant="empty" style={{ padding: 40 }}>No active chores this week. 🎉</Text>
+
+        <View style={s.tabRow}>
+          {(() => {
+            const tabs = [
+              { key: 'pending' as const, label: 'Pending', count: pendingCount },
+              { key: 'todo' as const, label: 'Todo', count: todoCount },
+              { key: 'done' as const, label: 'Done', count: undefined as number | undefined },
+            ];
+            return tabs.map((t, i) => {
+              const active = tab === t.key;
+              const isFirst = i === 0;
+              const isLast = i === tabs.length - 1;
+              return (
+                <TouchableOpacity
+                  key={t.key}
+                  style={[
+                    s.tabBtn,
+                    active && s.tabBtnActive,
+                    isFirst && s.tabBtnFirst,
+                    isLast && s.tabBtnLast,
+                    !isFirst && s.tabBtnNoLeftBorder,
+                  ]}
+                  onPress={() => setTab(t.key)}
+                  activeOpacity={0.7}
+                >
+                  <RNText style={[s.tabLabel, active && s.tabLabelActive]}>{t.label}</RNText>
+                  {t.count !== undefined && t.count > 0 && (
+                    <View style={s.tabBadge}>
+                      <RNText style={s.tabBadgeText}>{t.count}</RNText>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            });
+          })()}
+        </View>
+
+        {tabChores.length === 0 && (
+          <Text variant="empty" style={{ padding: 40 }}>
+            {tab === 'pending' ? 'Nothing waiting for review.' : tab === 'done' ? 'No completed chores yet.' : 'No active chores this week. 🎉'}
+          </Text>
         )}
 
         {buddies.map(b => {
-          const my = openChores.filter(c => c.assignedTo === b.uid).sort((a, b) => (a.dueDate || 0) - (b.dueDate || 0));
+          const my = tabChores
+            .filter(c => c.assignedTo === b.uid)
+            .sort((a, b) => {
+              const r = rankChore(a) - rankChore(b);
+              return r !== 0 ? r : (a.dueDate || 0) - (b.dueDate || 0);
+            });
           if (my.length === 0) return null;
           return (
             <View key={b.uid} style={{ marginBottom: 18 }}>
@@ -73,7 +135,7 @@ export default function ActiveChoresScreen({ navigation }: any) {
                 <View style={{ flex: 1 }}>
                   <Text variant="h3" style={{ fontSize: 16 }}>{b.displayName}</Text>
                   <Text variant="tiny" style={{ marginTop: 2, fontSize: 11 }}>
-                    {my.length} open · {my.filter(c => c.status === 'pending').length} pending
+                    {my.filter(c => c.status !== 'approved').length} open · {my.filter(c => c.status === 'pending').length} pending
                   </Text>
                 </View>
                 <RNText style={s.groupChevron}>›</RNText>
@@ -161,7 +223,8 @@ function ChoreRow({ chore: c, onApprove, onReject, onEdit, onDelete }: ChoreRowP
         )}
       </View>
       {c.status === 'pending' ? (
-        <View style={{ flexDirection: 'row', gap: 6, marginLeft: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 8 }}>
+          <RNText style={[s.statusPill, statusPillStyle(c.status)]}>{statusLabel(c.status)}</RNText>
           <TouchableOpacity style={s.approve} onPress={onApprove}>
             <RNText style={s.iconText}>✓</RNText>
           </TouchableOpacity>
@@ -183,24 +246,47 @@ function ChoreRow({ chore: c, onApprove, onReject, onEdit, onDelete }: ChoreRowP
 
 interface EditModalProps {
   chore: Chore;
-  buddies: Array<{ uid: string; displayName: string; avatar?: string; accent?: string }>;
+  buddies: Array<{ uid: string; displayName: string; email?: string; avatar?: string; accent?: string }>;
   onClose: () => void;
   onDelete: () => void;
 }
+
+const REMIND_OPTIONS: Array<{ label: string; value: number | null }> = [
+  { label: 'No reminder', value: null },
+  { label: '2 min', value: 2 },
+  { label: '30 min', value: 30 },
+  { label: '1 hour', value: 60 },
+  { label: '2 hours', value: 120 },
+  { label: '4 hours', value: 240 },
+  { label: '1 day', value: 1440 },
+];
 
 function EditChoreModal({ chore, buddies, onClose, onDelete }: EditModalProps) {
   const [title, setTitle] = useState(chore.title);
   const [points, setPoints] = useState<number>(chore.points ?? POINTS_PER[chore.recurrence as Recurrence] ?? 10);
   const [assignTo, setAssignTo] = useState<string>(chore.assignedTo);
+  const [remindBefore, setRemindBefore] = useState<number | null>(chore.remindBeforeMinutes ?? null);
+  const [time, setTime] = useState<{ h: number; m: number }>(() => {
+    const d = new Date(chore.dueDate || Date.now());
+    return { h: d.getHours(), m: d.getMinutes() };
+  });
+  const [wheelOpen, setWheelOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const canSave = !!title.trim();
   const save = async () => {
     if (!canSave) return;
+    const newDueDate = (() => {
+      const d = new Date(chore.dueDate || Date.now());
+      d.setHours(time.h, time.m, 0, 0);
+      return d.getTime();
+    })();
     await choreService.update(chore.id, {
       title: title.trim(),
       points,
       assignedTo: assignTo,
+      remindBeforeMinutes: remindBefore,
+      dueDate: newDueDate,
     });
     if (Platform.OS === 'android') {
       ToastAndroid.show(`Saved "${title.trim()}"`, ToastAndroid.SHORT);
@@ -248,11 +334,40 @@ function EditChoreModal({ chore, buddies, onClose, onDelete }: EditModalProps) {
             ))}
           </View>
 
+          <Text variant="sectionLabel" style={{ marginTop: 16 }}>Due time</Text>
+          <TouchableOpacity style={s.timeFieldBtn} onPress={() => setWheelOpen(true)}>
+            <RNText style={s.timeIcon}>🕒</RNText>
+            <RNText style={s.timeText} numberOfLines={1}>
+              {(() => {
+                const period = time.h >= 12 ? 'PM' : 'AM';
+                const h12 = time.h % 12 === 0 ? 12 : time.h % 12;
+                return `${h12}:${String(time.m).padStart(2, '0')} ${period}`;
+              })()}
+            </RNText>
+            <RNText style={s.timeChev}>›</RNText>
+          </TouchableOpacity>
+
+          <Text variant="sectionLabel" style={{ marginTop: 16 }}>Remind me before due</Text>
+          <View style={s.pillRow}>
+            {REMIND_OPTIONS.map(opt => (
+              <Pill
+                key={String(opt.value)}
+                label={opt.label}
+                size="sm"
+                active={remindBefore === opt.value}
+                onPress={() => setRemindBefore(opt.value)}
+              />
+            ))}
+          </View>
+
           <Text variant="sectionLabel" style={{ marginTop: 16 }}>Assigned to</Text>
           <Card row onPress={() => setPickerOpen(true)} radius={theme.radius.lg} style={{ gap: 12, marginBottom: 0 }}>
             <Avatar emoji={currentBuddy?.avatar || '👤'} accent={currentBuddy?.accent} size="sm" />
             <View style={{ flex: 1 }}>
               <Text variant="h3" style={{ fontSize: 15 }}>{currentBuddy?.displayName || 'Unassigned'}</Text>
+              {!!(currentBuddy as any)?.email && (
+                <Text variant="tiny" style={{ marginTop: 2, fontSize: 11, opacity: 0.7 }}>{(currentBuddy as any).email}</Text>
+              )}
               <Text variant="tiny" style={{ marginTop: 2, fontSize: 11 }}>Tap to reassign</Text>
             </View>
             <RNText style={s.chevron}>›</RNText>
@@ -264,6 +379,13 @@ function EditChoreModal({ chore, buddies, onClose, onDelete }: EditModalProps) {
           <Button label="🗑 Delete chore" variant="danger" onPress={onDelete} full style={{ marginTop: 4 }} />
         </View>
       </SafeAreaView>
+
+      <TimeWheel
+        visible={wheelOpen}
+        initial={time}
+        onClose={() => setWheelOpen(false)}
+        onConfirm={(v) => setTime(v)}
+      />
 
       <Modal
         visible={pickerOpen}
@@ -285,7 +407,10 @@ function EditChoreModal({ chore, buddies, onClose, onDelete }: EditModalProps) {
                   onPress={() => { setAssignTo(b.uid); setPickerOpen(false); }}
                 >
                   <Avatar emoji={b.avatar || '👤'} accent={b.accent} size="sm" />
-                  <Text variant="h3" style={{ fontSize: 15, flex: 1 }}>{b.displayName}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text variant="h3" style={{ fontSize: 15 }}>{b.displayName}</Text>
+                    {!!b.email && <Text variant="tiny" style={{ fontSize: 11, marginTop: 2, opacity: 0.7 }}>{b.email}</Text>}
+                  </View>
                   {assignTo === b.uid && <RNText style={s.sheetCheck}>✓</RNText>}
                 </TouchableOpacity>
               ))
@@ -297,26 +422,12 @@ function EditChoreModal({ chore, buddies, onClose, onDelete }: EditModalProps) {
   );
 }
 
-function statusLabel(status: string): string {
-  if (status === 'rejected') return 'Redo';
-  if (status === 'todo') return 'Todo';
-  if (status === 'pending') return 'Pending';
-  if (status === 'approved') return 'Done';
-  return status;
-}
-
-function statusPillStyle(status: string) {
-  if (status === 'rejected') return { backgroundColor: '#ef444433', color: '#ef4444' };
-  if (status === 'pending') return { backgroundColor: '#f59e0b33', color: '#f59e0b' };
-  return { backgroundColor: '#7b84a833', color: theme.colors.muted };
-}
-
 const s = StyleSheet.create({
   groupHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, paddingHorizontal: 4, marginBottom: 6 },
   groupChevron: { color: theme.colors.muted, fontSize: 22, fontWeight: '900' },
 
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: theme.colors.card, borderWidth: 1, borderColor: theme.colors.cardBorder, borderRadius: theme.radius.lg, padding: 12, marginBottom: 6 },
-  rowOverdue: { borderColor: theme.colors.danger + '80' },
+  rowOverdue: { borderColor: theme.colors.danger, borderWidth: 2, backgroundColor: theme.colors.danger + '10' },
   rowPressed: { opacity: 0.7 },
   rejectNote: { color: theme.colors.danger, fontSize: 11, fontWeight: '700', marginTop: 4 },
 
@@ -350,4 +461,34 @@ const s = StyleSheet.create({
   sheetRowActive: { backgroundColor: theme.colors.accent + '15' },
   sheetCheck: { color: theme.colors.accent, fontWeight: '900', fontSize: 18 },
   formFooter: { padding: 16, borderTopWidth: 1, borderTopColor: theme.colors.cardBorder, backgroundColor: theme.colors.bg, gap: 8 },
+  tabRow: { flexDirection: 'row', marginVertical: 12 },
+  tabBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 10, paddingHorizontal: 8,
+    backgroundColor: theme.colors.card,
+    borderWidth: 1, borderColor: theme.colors.cardBorder,
+  },
+  tabBtnFirst: { borderTopLeftRadius: 10, borderBottomLeftRadius: 10 },
+  tabBtnLast: { borderTopRightRadius: 10, borderBottomRightRadius: 10 },
+  tabBtnNoLeftBorder: { borderLeftWidth: 0 },
+  tabBtnActive: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
+  tabLabel: { color: theme.colors.text, fontWeight: '700', fontSize: 13 },
+  tabLabelActive: { color: '#fff' },
+  tabBadge: {
+    minWidth: 20, paddingHorizontal: 5, paddingVertical: 1,
+    borderRadius: 4,
+    backgroundColor: theme.colors.danger,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  tabBadgeText: { color: '#fff', fontWeight: '900', fontSize: 11 },
+  timeFieldBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: theme.colors.card,
+    borderWidth: 1.5, borderColor: theme.colors.cardBorder,
+    borderRadius: theme.radius.lg,
+    paddingHorizontal: 14, paddingVertical: 14, marginTop: 6,
+  },
+  timeIcon: { fontSize: 18 },
+  timeText: { flex: 1, color: theme.colors.text, fontWeight: '700', fontSize: 16 },
+  timeChev: { color: theme.colors.muted, fontSize: 22, fontWeight: '700' },
 });

@@ -10,25 +10,22 @@ import { buddyLabel } from '../../utils/buddy';
 import { currentWeek } from '../../utils/week';
 import { Reminder } from '../../types';
 import {
-  Header, Screen, Card, Avatar, Text, Button, WeekNavigator, NewReminderForm,
-  useConfirm, SCREEN_BOTTOM_PAD,
+  Header, Screen, Card, Avatar, Text, WeekNavigator, NewReminderForm,
+  FAB, useConfirm, SCREEN_BOTTOM_PAD,
 } from '../../components';
 
 export default function RemindersScreen({ route, navigation }: any) {
   const { reminders } = useReminders();
   const { buddies } = useBuddies();
-  const { fbUser, userDoc } = useCurrentUser();
+  const { fbUser } = useCurrentUser();
   const confirm = useConfirm();
-  const isBuddy = userDoc?.role === 'buddy';
-  // Buddies always see only their own reminders; managers see everything
-  // (or a single kid when navigated via the BuddyProfile sub-screen).
-  const filterKid: string | undefined = isBuddy ? fbUser?.uid : route?.params?.kidId;
+  // Everyone sees every reminder in the family. When navigated from a
+  // specific member's profile, filter to just that member.
+  const filterKid: string | undefined = route?.params?.kidId;
   const isSubScreen = !!route?.params?.kidId && navigation?.canGoBack?.();
-  const title = isBuddy
-    ? 'My Reminders'
-    : route?.params?.kidId
-      ? `${buddyLabel(route.params.kidId, buddies)} · Reminders`
-      : 'Reminders';
+  const title = route?.params?.kidId
+    ? `${buddyLabel(route.params.kidId, buddies)} · Reminders`
+    : 'Reminders';
 
   const [selectedWeek, setSelectedWeek] = useState<string>(currentWeek());
   const [createOpen, setCreateOpen] = useState(false);
@@ -56,7 +53,7 @@ export default function RemindersScreen({ route, navigation }: any) {
     .slice()
     .sort((a, b) => (a.dueDate || 0) - (b.dueDate || 0));
 
-  const totalForMe = isBuddy ? reminders.filter(matchesAssignee).length : reminders.length;
+  const totalForMe = reminders.length;
 
   const onDelete = async (r: Reminder) => {
     const ok = await confirm({
@@ -98,20 +95,10 @@ export default function RemindersScreen({ route, navigation }: any) {
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
         <WeekNavigator weekOf={selectedWeek} onChange={setSelectedWeek} />
 
-        {!isBuddy && (
-          <Button
-            label="+ New Reminder"
-            variant="primary"
-            onPress={() => { setEditing(null); setCreateOpen(true); }}
-            full
-            style={{ marginBottom: 12 }}
-          />
-        )}
-
         {list.length === 0 ? (
           <Text variant="empty">
             {totalForMe === 0
-              ? (isBuddy ? 'No reminders for you yet.' : 'No reminders this week.')
+              ? 'No reminders yet.'
               : `No reminders this week (${totalForMe} on other weeks).`}
           </Text>
         ) : list.map(r => {
@@ -125,7 +112,7 @@ export default function RemindersScreen({ route, navigation }: any) {
             <Card
               key={r.id}
               row
-              onPress={isBuddy ? undefined : () => { setEditing(r); setCreateOpen(true); }}
+              onPress={() => { setEditing(r); setCreateOpen(true); }}
               style={{ gap: 12 }}
             >
               <Avatar emoji={b?.avatar || '🔔'} accent={b?.accent} size="sm" />
@@ -134,15 +121,15 @@ export default function RemindersScreen({ route, navigation }: any) {
                 <Text variant="meta" style={{ marginTop: 2, fontSize: 12 }}>{when}</Text>
                 {!!r.notes && <Text variant="tiny" style={{ marginTop: 4, opacity: 0.8 }} numberOfLines={2}>{r.notes}</Text>}
               </View>
-              {!isBuddy && (
-                <TouchableOpacity style={s.delBtn} onPress={() => onDelete(r)} hitSlop={10}>
-                  <RNText style={{ fontSize: 18 }}>🗑</RNText>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity style={s.delBtn} onPress={() => onDelete(r)} hitSlop={10}>
+                <RNText style={{ fontSize: 18 }}>🗑</RNText>
+              </TouchableOpacity>
             </Card>
           );
         })}
       </ScrollView>
+
+      <FAB onPress={() => { setEditing(null); setCreateOpen(true); }} />
 
       <NewReminderForm
         visible={createOpen}

@@ -1,14 +1,49 @@
-import React from 'react';
-import { View, ScrollView, TouchableOpacity, StyleSheet, Text as RNText } from 'react-native';
+import React, { useState } from 'react';
+import { View, ScrollView, TouchableOpacity, StyleSheet, Text as RNText, ActivityIndicator } from 'react-native';
 import { theme } from '../../theme';
 import { Header, Screen, Card, Text, SCREEN_BOTTOM_PAD } from '../../components';
 import { useTextScale } from '../../context/TextScaleContext';
+import { checkLatestRelease, installApk, CURRENT_VERSION, ReleaseInfo } from '../../services/updateService';
 
 export default function SettingsScreen({ navigation }: any) {
   const { scale, bumpUp, bumpDown, setScale, min, max } = useTextScale();
   const pct = Math.round(scale * 100);
   const atMin = scale <= min + 0.001;
   const atMax = scale >= max - 0.001;
+
+  const [checking, setChecking] = useState(false);
+  const [installing, setInstalling] = useState(false);
+  const [latest, setLatest] = useState<ReleaseInfo | null>(null);
+  const [updateMsg, setUpdateMsg] = useState<string>('');
+
+  const onCheckUpdate = async () => {
+    setChecking(true); setUpdateMsg('');
+    try {
+      const info = await checkLatestRelease();
+      if (!info) { setUpdateMsg('No release info available.'); return; }
+      setLatest(info);
+      setUpdateMsg(info.isNewer
+        ? `Update available: v${info.latestVersion}`
+        : `You're on the latest version (v${CURRENT_VERSION}).`);
+    } catch (e: any) {
+      setUpdateMsg(`Check failed: ${e?.message || e}`);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const onInstall = async () => {
+    if (!latest) return;
+    setInstalling(true); setUpdateMsg('Downloading…');
+    try {
+      await installApk(latest.apkUrl);
+      setUpdateMsg('Download complete — confirm install in the dialog.');
+    } catch (e: any) {
+      setUpdateMsg(`Install failed: ${e?.message || e}`);
+    } finally {
+      setInstalling(false);
+    }
+  };
 
   return (
     <Screen contentStyle={{ padding: 0 }}>
@@ -50,6 +85,45 @@ export default function SettingsScreen({ navigation }: any) {
             <RNText style={s.resetText}>Reset to default (100%)</RNText>
           </TouchableOpacity>
         </Card>
+
+        <Card padding={16} radius={theme.radius.lg} style={{ marginBottom: 12 }}>
+          <Text variant="sectionLabel" style={{ marginTop: 0, marginBottom: 8 }}>App version</Text>
+          <Text style={{ fontSize: 14, color: theme.colors.muted, marginBottom: 4 }}>
+            Current: <Text style={{ color: theme.colors.text, fontWeight: '700' }}>v{CURRENT_VERSION}</Text>
+          </Text>
+          {!!updateMsg && (
+            <Text style={{ fontSize: 13, color: latest?.isNewer ? theme.colors.accent : theme.colors.muted, marginBottom: 8, marginTop: 4 }}>
+              {updateMsg}
+            </Text>
+          )}
+
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+            <TouchableOpacity
+              style={[s.updateBtn, s.updateBtnSecondary, checking && s.updateBtnDisabled]}
+              disabled={checking || installing}
+              onPress={onCheckUpdate}
+            >
+              {checking
+                ? <ActivityIndicator color={theme.colors.text} />
+                : <RNText style={s.updateBtnSecondaryText}>Check for update</RNText>}
+            </TouchableOpacity>
+            {latest?.isNewer && (
+              <TouchableOpacity
+                style={[s.updateBtn, s.updateBtnPrimary, installing && s.updateBtnDisabled]}
+                disabled={installing}
+                onPress={onInstall}
+              >
+                {installing
+                  ? <ActivityIndicator color="#fff" />
+                  : <RNText style={s.updateBtnPrimaryText}>Download &amp; install</RNText>}
+              </TouchableOpacity>
+            )}
+          </View>
+        </Card>
+
+        <Text style={{ textAlign: 'center', color: theme.colors.muted, fontSize: 12, marginTop: 8, marginBottom: 8 }}>
+          ChoreBuddy v{CURRENT_VERSION}
+        </Text>
       </ScrollView>
     </Screen>
   );
@@ -85,4 +159,18 @@ const s = StyleSheet.create({
     paddingVertical: 8, paddingHorizontal: 14,
   },
   resetText: { color: theme.colors.muted, fontWeight: '700', fontSize: 13 },
+
+  updateBtn: {
+    flex: 1, paddingVertical: 12, paddingHorizontal: 14,
+    borderRadius: theme.radius.lg, alignItems: 'center', justifyContent: 'center',
+    minHeight: 44,
+  },
+  updateBtnSecondary: {
+    backgroundColor: theme.colors.card,
+    borderWidth: 1.5, borderColor: theme.colors.cardBorder,
+  },
+  updateBtnSecondaryText: { color: theme.colors.text, fontWeight: '800', fontSize: 13 },
+  updateBtnPrimary: { backgroundColor: theme.colors.accent },
+  updateBtnPrimaryText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+  updateBtnDisabled: { opacity: 0.5 },
 });

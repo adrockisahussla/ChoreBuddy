@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import firestore from '@react-native-firebase/firestore';
 import { useAuth } from './useAuth';
 import { userService } from '../services/userService';
 import { User } from '../types';
@@ -26,34 +27,50 @@ export function CurrentUserProvider({ children }: { children: React.ReactNode })
       creatingForUidRef.current = null;
       return;
     }
+
+    setLoading(true);
     let cancelled = false;
-    (async () => {
-      setLoading(true);
-      try {
-        let doc = await userService.getByUid(fbUser.uid);
-        if (!doc) {
-          if (creatingForUidRef.current === fbUser.uid) {
-            if (!cancelled) setLoading(false);
-            return;
-          }
-          creatingForUidRef.current = fbUser.uid;
-          doc = await userService.createForNewSignIn(
+
+    // Subscribe to the user doc so any update — accept-invite flipping
+    // familyId/role, in-app profile edits, etc. — propagates to every
+    // family-scoped hook (useFamilyId, useBuddies, useChores...) without
+    // requiring an app restart.
+    const ref = firestore().collection('users').doc(fbUser.uid);
+    const unsubscribe = ref.onSnapshot(
+      async (snap) => {
+        if (cancelled) return;
+        if (snap.exists()) {
+          setUserDoc({ id: snap.id, ...(snap.data() as any) } as User);
+          setLoading(false);
+          return;
+        }
+        // No doc — kick off first-time creation once. Guard against
+        // concurrent triggers (snapshot may fire multiple times during
+        // the create) by tracking which uid we're already creating for.
+        if (creatingForUidRef.current === fbUser.uid) return;
+        creatingForUidRef.current = fbUser.uid;
+        try {
+          await userService.createForNewSignIn(
             fbUser.uid,
             fbUser.email,
             fbUser.displayName,
           );
+          // No setUserDoc here — the snapshot listener will fire again
+          // with the newly-created doc and set state then.
+        } catch (e) {
+          console.warn('createForNewSignIn failed', e);
+          if (!cancelled) setLoading(false);
         }
-        if (!cancelled) {
-          setUserDoc(doc ?? null);
-          setLoading(false);
-        }
-      } catch (e) {
-        console.warn('CurrentUserProvider load failed', e);
+      },
+      (err) => {
+        console.warn('userDoc snapshot error', err);
         if (!cancelled) setLoading(false);
-      }
-    })();
+      },
+    );
+
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, [fbUser, initializing]);
 

@@ -7,7 +7,11 @@ const col = () => firestore().collection('invites');
 const generateToken = (): string =>
   Math.random().toString(36).substring(2, 8).toUpperCase();
 
-export const BUDDY_APP_BASE = 'http://localhost:3000/buddy-app.html';
+// Public invite landing page hosted via Firebase Hosting under the
+// existing chorebuddy-67a5f project. Recipients of the Firebase Auth
+// sign-in-link land here, see their invite token, and get a link to
+// install the APK.
+export const BUDDY_APP_BASE = 'https://chorebuddy-67a5f.web.app/invite';
 
 export const inviteService = {
   create: async (data: Omit<Invite, 'id' | 'token' | 'expiresAt' | 'createdAt' | 'status'>) => {
@@ -40,12 +44,33 @@ export const inviteService = {
 
     return { id: ref.id, token, emailSent, emailError };
   },
-  accept: (id: string) =>
-    col().doc(id).update({ status: 'accepted', acceptedAt: Date.now() }),
+  accept: (id: string, acceptedByUid?: string) =>
+    col().doc(id).update({
+      status: 'accepted',
+      acceptedAt: Date.now(),
+      ...(acceptedByUid ? { acceptedByUid } : {}),
+    }),
+  decline: (id: string) =>
+    col().doc(id).update({ status: 'declined' }),
+  block: (id: string) =>
+    col().doc(id).update({ status: 'blocked' }),
   revoke: (id: string) =>
     col().doc(id).delete(),
   findByToken: async (token: string): Promise<Invite | null> => {
     const snap = await col().where('token', '==', token).where('status', '==', 'pending').limit(1).get();
+    if (snap.empty) return null;
+    const d = snap.docs[0];
+    return { id: d.id, ...(d.data() as any) } as Invite;
+  },
+  /** Used at first sign-in: find a pending invite for this email so the
+   *  new user joins the inviter's family instead of starting a new one. */
+  findByEmail: async (email: string): Promise<Invite | null> => {
+    const normalized = email.toLowerCase();
+    const snap = await col()
+      .where('email', '==', normalized)
+      .where('status', '==', 'pending')
+      .limit(1)
+      .get();
     if (snap.empty) return null;
     const d = snap.docs[0];
     return { id: d.id, ...(d.data() as any) } as Invite;

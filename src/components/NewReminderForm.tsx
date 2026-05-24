@@ -74,11 +74,12 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
       setAssignTos(reminder.assignedTo ? [reminder.assignedTo] : []);
       setNotes(reminder.notes || '');
     } else {
+      const now = new Date();
       setTitle('');
       setRecur('once');
-      setOnceDate(null);
-      setTime({ h: 9, m: 0 });
-      setWeekdays([new Date().getDay()]);
+      setOnceDate(now);
+      setTime({ h: now.getHours(), m: now.getMinutes() });
+      setWeekdays([now.getDay()]);
       setAssignTos(defaultBuddyUid ? [defaultBuddyUid] : []);
       setNotes('');
     }

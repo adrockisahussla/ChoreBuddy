@@ -5,13 +5,15 @@ import { useReminders } from '../../hooks/useReminders';
 import { useRewards, useRewardClaims } from '../../hooks/useRewards';
 import { useInvites } from '../../hooks/useInvites';
 import { useBuddies } from '../../hooks/useBuddies';
+import { useFamilyMembers } from '../../hooks/useFamilyMembers';
+import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { theme } from '../../theme';
 import { buddyLabel, isOverdue, chorePoints } from '../../utils/buddy';
 import { currentWeek } from '../../utils/week';
 import { inviteService } from '../../services/inviteService';
 import {
-  Header, Screen, Card, Avatar, Text, Button, StatCard,
-  AddBuddyForm, useConfirm, SCREEN_BOTTOM_PAD,
+  Header, Screen, Card, Avatar, Text, Button,
+  AddBuddyForm, BuddyStatPillsCard, useConfirm, SCREEN_BOTTOM_PAD,
 } from '../../components';
 
 export default function HomeScreen({ navigation }: any) {
@@ -21,28 +23,18 @@ export default function HomeScreen({ navigation }: any) {
   const { rewardClaims } = useRewardClaims();
   const { invites } = useInvites();
   const { buddies } = useBuddies();
+  const { members } = useFamilyMembers();
+  const { fbUser, userDoc } = useCurrentUser();
+  const myUid = fbUser?.uid;
+  const coManagers = members.filter(m => m.role === 'manager' && m.uid !== myUid);
+  const me = members.find(m => m.uid === myUid);
   const [addOpen, setAddOpen] = useState(false);
   const confirm = useConfirm();
-
-  const drawer = navigation.getParent?.();
-  const goActiveChores = () => navigation.navigate('ActiveChores');
-  const goReminders = () => drawer?.navigate('Reminders');
 
   const pendingChores = chores.filter(c => c.status === 'pending').length;
   const pendingRewards = rewardItems.filter(r => r.status === 'requested').length;
   const pendingClaims = rewardClaims.filter(c => c.status === 'pending').length;
   const totalPending = pendingChores + pendingRewards + pendingClaims;
-
-  const ws = currentWeek();
-  const weekChores = chores.filter(c => {
-    if (c.recurrence === 'weekly' || c.recurrence === 'daily') return (c.weekOf || '') <= ws;
-    return c.weekOf === ws;
-  });
-  const overdueCount = weekChores.filter(isOverdue).length;
-  const upcomingReminders = reminders.filter(r => {
-    const t = new Date(r.date + (r.time ? 'T' + r.time : 'T23:59:59')).getTime();
-    return t > Date.now();
-  }).length;
 
   const pendingInvites = invites.filter(i => i.status === 'pending' && i.expiresAt > Date.now());
 
@@ -74,32 +66,88 @@ export default function HomeScreen({ navigation }: any) {
         onMenuPress={() => navigation.getParent?.()?.openDrawer?.()}
       />
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
-        <Text variant="sectionLabel" style={{ marginTop: 0 }}>Buddies</Text>
-        {buddies.length > 0 ? (
-          <View style={s.buddiesGrid}>
-            {buddies.map(b => {
-              const myActive = chores.filter(c => c.assignedTo === b.uid && (c.status === 'todo' || c.status === 'pending')).length;
-              const pendingMyChores = chores.filter(c => c.assignedTo === b.uid && c.status === 'pending').length;
-              const pendingMyRewards = rewardItems.filter(r => r.kidId === b.uid && r.status === 'requested').length;
-              const pendingMyClaims = rewardClaims.filter(c => c.kidId === b.uid && c.status === 'pending').length;
-              const attention = pendingMyChores + pendingMyRewards + pendingMyClaims;
-              return (
-                <TouchableOpacity
-                  key={b.uid}
-                  style={s.buddyGridCard}
-                  onPress={() => navigation.navigate('BuddyProfile', { kidId: b.uid })}
-                  activeOpacity={0.85}
-                >
-                  <Avatar emoji={b.avatar || '👤'} accent={b.accent} size="md" attention={attention} style={{ marginBottom: 8 }} />
-                  <Text variant="body" style={{ fontSize: 14 }}>{b.displayName}</Text>
-                  <Text variant="tiny" style={{ marginTop: 2, fontSize: 11 }}>{myActive} active</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        ) : (
-          <Text variant="meta" style={{ marginBottom: 8 }}>No buddies yet — add one below.</Text>
-        )}
+        {(() => {
+          const statsFor = (uid: string) => {
+            const choreCount = chores.filter(c => c.assignedTo === uid && (c.status === 'todo' || c.status === 'pending')).length;
+            const approvals = chores.filter(c => c.assignedTo === uid && c.status === 'pending').length;
+            const rewardReq = rewardItems.filter(r => r.kidId === uid && r.status === 'requested').length;
+            const remCount = reminders.filter(r => {
+              if (r.assignedTo !== uid) return false;
+              const t = new Date(r.date + (r.time ? 'T' + r.time : 'T23:59:59')).getTime();
+              return t > Date.now();
+            }).length;
+            const overdue = chores.filter(c =>
+              c.assignedTo === uid &&
+              (c.status === 'todo' || c.status === 'pending') &&
+              isOverdue(c),
+            ).length;
+            return { choreCount, approvals, rewardReq, remCount, overdue };
+          };
+
+          const meRow = me && (
+            <>
+              <Text variant="sectionLabel" style={{ marginTop: 0 }}>My Chores</Text>
+              <BuddyStatPillsCard
+                buddy={{ uid: me.uid, displayName: `${me.displayName} (me)`, avatar: me.avatar, accent: me.accent }}
+                navigation={navigation}
+                overdue={statsFor(me.uid).overdue}
+                chores={statsFor(me.uid).choreCount}
+                approvals={statsFor(me.uid).approvals}
+                reminders={statsFor(me.uid).remCount}
+                rewards={statsFor(me.uid).rewardReq}
+              />
+            </>
+          );
+
+          return (
+            <>
+              {meRow}
+
+              <Text variant="sectionLabel">Buddies — tap to see details</Text>
+              {buddies.length > 0 ? (
+                buddies.map(b => {
+                  const st = statsFor(b.uid);
+                  return (
+                    <BuddyStatPillsCard
+                      key={b.uid}
+                      buddy={b}
+                      navigation={navigation}
+                      overdue={st.overdue}
+                      chores={st.choreCount}
+                      approvals={st.approvals}
+                      reminders={st.remCount}
+                      rewards={st.rewardReq}
+                    />
+                  );
+                })
+              ) : (
+                <Text variant="meta" style={{ marginBottom: 8 }}>No buddies yet — add one below.</Text>
+              )}
+
+              {coManagers.length > 0 && (
+                <>
+                  <Text variant="sectionLabel">Co-managers</Text>
+                  {coManagers.map(m => {
+                    const st = statsFor(m.uid);
+                    return (
+                      <BuddyStatPillsCard
+                        key={m.uid}
+                        buddy={{ uid: m.uid, displayName: m.displayName, avatar: m.avatar, accent: m.accent }}
+                        navigation={navigation}
+                        overdue={st.overdue}
+                        chores={st.choreCount}
+                        approvals={st.approvals}
+                        reminders={st.remCount}
+                        rewards={st.rewardReq}
+                      />
+                    );
+                  })}
+                </>
+              )}
+            </>
+          );
+        })()}
+
         <Button
           label="+ Add a Buddy"
           variant="primary"
@@ -107,29 +155,6 @@ export default function HomeScreen({ navigation }: any) {
           style={{ marginTop: 8 }}
         />
         <AddBuddyForm visible={addOpen} onClose={() => setAddOpen(false)} />
-
-        <Text variant="sectionLabel" style={{ marginTop: 24 }}>Summary</Text>
-        <StatCard
-          num={weekChores.length}
-          numColor={overdueCount > 0 ? theme.colors.danger : theme.colors.blue}
-          title="Active Chores"
-          meta={overdueCount > 0 ? `${overdueCount} overdue` : undefined}
-          onPress={goActiveChores}
-        />
-        <StatCard
-          num={totalPending}
-          numColor={totalPending > 0 ? theme.colors.danger : theme.colors.muted}
-          title="Approvals"
-          meta={totalPending > 0 ? `${totalPending} to review` : undefined}
-          onPress={goActiveChores}
-        />
-        <StatCard
-          num={upcomingReminders}
-          numColor={theme.colors.purple}
-          title="Reminders"
-          meta="Upcoming"
-          onPress={goReminders}
-        />
 
         {pendingInvites.length > 0 && (
           <>
@@ -192,16 +217,6 @@ export default function HomeScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-  buddiesGrid: { flexDirection: 'row', gap: 10, marginBottom: 8 },
-  buddyGridCard: {
-    flex: 1,
-    backgroundColor: theme.colors.card,
-    borderWidth: 1, borderColor: theme.colors.cardBorder,
-    borderRadius: theme.radius.xl,
-    padding: 16,
-    alignItems: 'center',
-    ...theme.shadow.card,
-  },
   inviteName: { color: '#92400e', fontWeight: '700', fontSize: 14 },
   invitePill: { backgroundColor: '#fcd34d', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
   invitePillText: { color: '#78350f', fontSize: 10, fontWeight: '700' },

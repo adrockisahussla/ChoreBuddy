@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View, Text as RNText } from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, Text as RNText } from 'react-native';
 import { useChores } from '../../hooks/useChores';
 import { useReminders } from '../../hooks/useReminders';
 import { useRewards, useRewardClaims } from '../../hooks/useRewards';
 import { useBuddies } from '../../hooks/useBuddies';
 import { theme } from '../../theme';
 import { chorePoints, isOverdue, buddyLabel } from '../../utils/buddy';
-import { Header, Screen, Card, Avatar, Text, StatCard, AddBuddyForm, SCREEN_BOTTOM_PAD } from '../../components';
+import { Header, Screen, Card, Avatar, Text, AddBuddyForm, BuddyStatPillsCard, SCREEN_BOTTOM_PAD } from '../../components';
 
 export default function BuddyProfileScreen({ route, navigation }: any) {
   const buddyUid: string = route.params?.kidId || '';
@@ -16,25 +16,19 @@ export default function BuddyProfileScreen({ route, navigation }: any) {
   const { chores } = useChores();
   const { reminders } = useReminders();
   const { rewardItems } = useRewards();
-  const { rewardClaims } = useRewardClaims();
+  const { rewardClaims: _rewardClaims } = useRewardClaims();
 
   const my = chores.filter(c => c.assignedTo === buddyUid);
-  const active = my.filter(c => c.status === 'todo' || c.status === 'pending').length;
-  const overdue = my.filter(isOverdue).length;
   const points = my.filter(c => c.status === 'approved').reduce((s, c) => s + chorePoints(c), 0);
-  const myRewards = rewardItems.filter(r => r.kidId === buddyUid);
-  const myClaims = rewardClaims.filter(c => c.kidId === buddyUid);
-  const pendingClaims = myClaims.filter(c => c.status === 'pending').length;
-  const pendingRequests = myRewards.filter(r => r.status === 'requested').length;
-  const rewardsAttention = pendingRequests + pendingClaims;
-  const myReminders = reminders.filter(r => r.assignedTo === buddyUid).length;
-
-  const QUICK = [
-    { label: 'Chores',  num: active,           meta: overdue > 0 ? `${overdue} overdue` : undefined,                onPress: () => navigation.navigate('BuddyChores',    { kidId: buddyUid }) },
-    { label: 'Rewards', num: myRewards.length, meta: rewardsAttention > 0 ? `${rewardsAttention} pending` : undefined, onPress: () => navigation.navigate('BuddyRewards',   { kidId: buddyUid }) },
-    { label: 'Alerts',  num: myReminders,      meta: myReminders > 0 ? 'upcoming' : undefined,                       onPress: () => navigation.navigate('BuddyReminders', { kidId: buddyUid }) },
-    { label: 'Map',     num: '·',              meta: 'live',                                                         onPress: () => navigation.navigate('BuddyMap',       { kidId: buddyUid }) },
-  ];
+  const myChores = my.filter(c => c.status === 'todo' || c.status === 'pending').length;
+  const myApprovals = my.filter(c => c.status === 'pending').length;
+  const myOverdue = my.filter(c => (c.status === 'todo' || c.status === 'pending') && isOverdue(c)).length;
+  const myRewardReq = rewardItems.filter(r => r.kidId === buddyUid && r.status === 'requested').length;
+  const myReminders = reminders.filter(r => {
+    if (r.assignedTo !== buddyUid) return false;
+    const t = new Date(r.date + (r.time ? 'T' + r.time : 'T23:59:59')).getTime();
+    return t > Date.now();
+  }).length;
 
   const accent = buddy?.accent || theme.colors.purple;
   const name = buddy?.displayName || buddyLabel(buddyUid, buddies);
@@ -69,16 +63,18 @@ export default function BuddyProfileScreen({ route, navigation }: any) {
           buddy={buddy}
         />
 
-        <Text variant="sectionLabel" style={{ marginTop: 12 }}>Quick Access</Text>
-        {QUICK.map(q => (
-          <StatCard
-            key={q.label}
-            num={q.num}
-            title={q.label}
-            meta={q.meta}
-            onPress={q.onPress}
+        {!!buddy && (
+          <BuddyStatPillsCard
+            buddy={buddy}
+            navigation={navigation}
+            overdue={myOverdue}
+            chores={myChores}
+            approvals={myApprovals}
+            reminders={myReminders}
+            rewards={myRewardReq}
+            hideHeader
           />
-        ))}
+        )}
       </ScrollView>
     </Screen>
   );
@@ -87,7 +83,7 @@ export default function BuddyProfileScreen({ route, navigation }: any) {
 const s = StyleSheet.create({
   heroCard: {
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 12,
     position: 'relative',
   },
   editBtn: {

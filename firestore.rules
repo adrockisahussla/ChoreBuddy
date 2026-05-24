@@ -1,0 +1,98 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isMe(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function hasUserDoc() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function myUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function inMyFamily(familyId) {
+      return hasUserDoc() && myUser().familyId == familyId;
+    }
+
+    function amManager() {
+      return hasUserDoc() && myUser().role == 'manager';
+    }
+
+    match /users/{uid} {
+      allow read: if isMe(uid)
+        || (hasUserDoc() && resource.data.familyId == myUser().familyId);
+      allow create: if isMe(uid) && request.resource.data.uid == uid;
+      allow update: if isMe(uid) && request.resource.data.uid == uid;
+      allow delete: if isMe(uid)
+        || (amManager() && resource.data.familyId == myUser().familyId);
+    }
+
+    match /families/{fid} {
+      allow read: if inMyFamily(fid);
+      allow create: if isSignedIn()
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update: if inMyFamily(fid);
+      allow delete: if amManager() && inMyFamily(fid);
+    }
+
+    match /chores/{id} {
+      allow read: if inMyFamily(resource.data.familyId);
+      allow create: if inMyFamily(request.resource.data.familyId);
+      allow update, delete: if inMyFamily(resource.data.familyId);
+    }
+
+    match /chorePool/{id} {
+      allow read: if inMyFamily(resource.data.familyId);
+      allow create: if inMyFamily(request.resource.data.familyId);
+      allow update, delete: if inMyFamily(resource.data.familyId);
+    }
+
+    match /rewards/{id} {
+      allow read: if inMyFamily(resource.data.familyId);
+      allow create: if inMyFamily(request.resource.data.familyId);
+      allow update, delete: if inMyFamily(resource.data.familyId);
+    }
+
+    match /rewardClaims/{id} {
+      allow read: if inMyFamily(resource.data.familyId);
+      allow create: if inMyFamily(request.resource.data.familyId);
+      allow update, delete: if inMyFamily(resource.data.familyId);
+    }
+
+    match /reminders/{id} {
+      allow read: if inMyFamily(resource.data.familyId);
+      allow create: if inMyFamily(request.resource.data.familyId);
+      allow update, delete: if inMyFamily(resource.data.familyId);
+    }
+
+    match /invites/{id} {
+      allow read: if inMyFamily(resource.data.familyId)
+        || (isSignedIn() && request.auth.token.email != null && resource.data.email != null && request.auth.token.email.lower() == resource.data.email.lower());
+      allow create: if inMyFamily(request.resource.data.familyId);
+      allow update: if inMyFamily(resource.data.familyId)
+        || (isSignedIn() && request.auth.token.email != null && resource.data.email != null && request.auth.token.email.lower() == resource.data.email.lower());
+      allow delete: if inMyFamily(resource.data.familyId);
+    }
+
+    // Per-machine firewall control plane. Docs are keyed by machine id,
+    // not family, so we can't gate by familyId. Managers in any family
+    // can issue SHUTOFF/ALLOW commands; the Windows agents that poll
+    // these docs run on the manager's own PCs.
+    match /firewallControl/{machineId} {
+      allow read, write: if amManager();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,5 +1,5 @@
-import React from 'react';
-import { ScrollView, View, StyleSheet, Text as RNText } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, ScrollView, View, StyleSheet, Text as RNText } from 'react-native';
 import { theme } from '../../theme';
 import { useChores } from '../../hooks/useChores';
 import { useReminders } from '../../hooks/useReminders';
@@ -7,7 +7,7 @@ import { useRewards, useRewardClaims } from '../../hooks/useRewards';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { chorePoints } from '../../utils/buddy';
 import { currentWeek } from '../../utils/week';
-import { Header, Screen, Card, Avatar, Text, StatCard, SCREEN_BOTTOM_PAD } from '../../components';
+import { Header, Screen, Card, Avatar, Text, StatCard, InviteBanner, SCREEN_BOTTOM_PAD } from '../../components';
 
 /**
  * BuddyHomeScreen — buddy-side Home that mirrors the manager Home's
@@ -20,6 +20,40 @@ import { Header, Screen, Card, Avatar, Text, StatCard, SCREEN_BOTTOM_PAD } from 
  *   • Reminders         — upcoming + always-counts-as-upcoming recurring
  *   • Active Rewards    — rewards keyed to me, status=active
  */
+
+/** Brief pulse on mount when `flash` is true — overlays the header
+ *  brand color (theme.colors.accent) over the wrapped card to draw the
+ *  eye. pointerEvents=none so the card stays tappable through it. */
+function FlashWrap({ flash, children }: { flash: boolean; children: React.ReactNode }) {
+  const overlay = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!flash) { overlay.setValue(0); return; }
+    Animated.sequence([
+      Animated.timing(overlay, { toValue: 0.55, duration: 240, useNativeDriver: true }),
+      Animated.timing(overlay, { toValue: 0,    duration: 240, useNativeDriver: true }),
+      Animated.timing(overlay, { toValue: 0.55, duration: 240, useNativeDriver: true }),
+      Animated.timing(overlay, { toValue: 0,    duration: 240, useNativeDriver: true }),
+      Animated.timing(overlay, { toValue: 0.55, duration: 240, useNativeDriver: true }),
+      Animated.timing(overlay, { toValue: 0,    duration: 240, useNativeDriver: true }),
+    ]).start();
+  }, [flash]);
+  return (
+    <View>
+      {children}
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: theme.colors.accent,
+          borderRadius: theme.radius.lg,
+          opacity: overlay,
+        }}
+      />
+    </View>
+  );
+}
+
 export default function BuddyHomeScreen({ navigation }: any) {
   const { fbUser, userDoc } = useCurrentUser();
   const myUid = fbUser?.uid;
@@ -36,7 +70,16 @@ export default function BuddyHomeScreen({ navigation }: any) {
   const myRewards = rewardItems.filter(r => (r as any).kidId === myUid && r.status === 'active');
   const myClaims = rewardClaims.filter(c => c.kidId === myUid);
 
-  const todayChores = my.filter(c => c.recurrence === 'daily' && c.status !== 'approved').length;
+  const isDueToday = (c: any) => {
+    if (c.recurrence === 'daily') return true;
+    if (!c.dueDate) return false;
+    const d = new Date(c.dueDate);
+    const now = new Date();
+    return d.toDateString() === now.toDateString();
+  };
+  const todaysOpen = my.filter(c => isDueToday(c) && c.status !== 'approved');
+  const todayChores = todaysOpen.length;
+  const todayOverdue = todaysOpen.filter(c => (c.dueDate || 0) > 0 && (c.dueDate || 0) < Date.now()).length;
   const weekly = my.filter(c => c.recurrence === 'weekly');
   const weeklyDone = weekly.filter(c => c.status === 'approved' && c.weekOf === ws).length;
 
@@ -91,6 +134,7 @@ export default function BuddyHomeScreen({ navigation }: any) {
         onMenuPress={() => navigation.openDrawer?.()}
       />
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
+        <InviteBanner />
         {/* Identity strip — mirrors the manager Home's "Buddies" section,
             but for a single buddy: their own avatar + accent + name. */}
         <Text variant="sectionLabel" style={{ marginTop: 0 }}>You</Text>
@@ -112,13 +156,19 @@ export default function BuddyHomeScreen({ navigation }: any) {
           onPress={() => navigation.navigate('MyRewards')}
         />
 
-        <StatCard
-          num={todayChores}
-          numColor={todayChores > 0 ? theme.colors.danger : theme.colors.blue}
-          title="Today's Chores"
-          meta={todayChores > 0 ? `${todayChores} to do` : 'All done — nice!'}
-          onPress={() => navigation.navigate('MyChores')}
-        />
+        <FlashWrap flash={todayOverdue > 0}>
+          <StatCard
+            num={todayChores}
+            numColor={todayOverdue > 0 ? theme.colors.danger : todayChores > 0 ? theme.colors.blue : theme.colors.blue}
+            title={todayOverdue > 0 ? "⚠ Today's Chores" : "Today's Chores"}
+            meta={
+              todayOverdue > 0
+                ? `${todayOverdue} overdue · ${todayChores} to do`
+                : todayChores > 0 ? `${todayChores} to do` : 'All done — nice!'
+            }
+            onPress={() => navigation.navigate('MyChores')}
+          />
+        </FlashWrap>
 
         <StatCard
           num={`${weeklyDone}/${weekly.length}`}

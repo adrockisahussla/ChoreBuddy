@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>You're invited to ChoreBuddy</title>
+<style>
+  :root {
+    --bg: linear-gradient(160deg, #ad46ff 0%, #f6339a 60%, #fb2c36 100%);
+    --card: #ffffff;
+    --text: #111827;
+    --muted: #6b7280;
+    --accent: #f6339a;
+    --token-bg: #fff4f9;
+    --token-border: #f6339a;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  body { display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .card {
+    background: var(--card);
+    border-radius: 24px;
+    padding: 32px 28px;
+    max-width: 440px;
+    width: 100%;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
+    text-align: center;
+  }
+  .logo { font-size: 56px; line-height: 1; margin-bottom: 12px; }
+  h1 {
+    font-size: 24px; font-weight: 900; margin: 0 0 6px;
+    letter-spacing: -0.4px;
+  }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 24px; line-height: 1.5; }
+
+  .token-block {
+    background: var(--token-bg);
+    border: 2px dashed var(--token-border);
+    border-radius: 16px;
+    padding: 18px 16px;
+    margin-bottom: 24px;
+  }
+  .token-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-weight: 800;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .token {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 38px; font-weight: 900;
+    letter-spacing: 4px;
+    color: var(--text);
+    word-break: break-all;
+  }
+  .token-hint {
+    font-size: 12px; color: var(--muted); margin-top: 8px;
+  }
+
+  .step {
+    display: flex; align-items: center; gap: 12px;
+    background: #f9fafb;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    text-align: left;
+  }
+  .step-num {
+    width: 28px; height: 28px; border-radius: 14px;
+    background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 14px; flex-shrink: 0;
+  }
+  .step-text { font-size: 14px; font-weight: 600; }
+
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    border-radius: 14px;
+    background: var(--accent);
+    color: #fff;
+    text-decoration: none;
+    font-weight: 900;
+    font-size: 16px;
+    text-align: center;
+    margin-top: 18px;
+    transition: transform 0.1s;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn.secondary {
+    background: transparent;
+    color: var(--accent);
+    border: 1.5px solid #e5e7eb;
+    margin-top: 10px;
+    font-weight: 700;
+  }
+  .footer {
+    margin-top: 20px;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .no-token { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">✨</div>
+    <h1>You're invited!</h1>
+    <p class="sub">Someone in your family wants you on ChoreBuddy.</p>
+
+    <div class="token-block" id="tokenBlock">
+      <div class="token-label">Your invite code</div>
+      <div class="token" id="token">—</div>
+      <div class="token-hint">You'll type this into the app after installing.</div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-text">Install ChoreBuddy on your phone</div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-text">Open it, tap "Join a family"</div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-text">Type the invite code above</div>
+    </div>
+
+    <a class="btn" id="installBtn" href="#" target="_blank" rel="noopener">📥 Install ChoreBuddy (APK)</a>
+    <a class="btn secondary" href="chorebuddy://">Already installed? Open the app</a>
+
+    <div id="androidHelp" style="display:none; margin-top:18px; background:#fef3c7; border:1.5px solid #f59e0b; border-radius:12px; padding:14px; text-align:left; font-size:13px; line-height:1.5; color:#92400e;">
+      <b>📲 Install button doesn't work?</b><br>
+      You're inside Gmail's mini-browser, which blocks app downloads. Get out of it like this:
+      <ol style="margin:10px 0 6px 18px; padding:0; line-height:1.6;">
+        <li>Tap the <b>⋮</b> (three dots) at the top right of this screen</li>
+        <li>Choose <b>"Open in browser"</b> (or "Open in Chrome" / "Open in Samsung Internet")</li>
+        <li>Tap Install again from the real browser — it'll work</li>
+      </ol>
+      <div style="margin-top:12px; font-size:12px; font-weight:700;">No menu? Copy this link and paste into Chrome:</div>
+      <button type="button" id="copyBtn" style="margin-top:6px; width:100%; padding:10px; background:#fff; border:1px solid #f59e0b; border-radius:8px; font-size:12px; color:#92400e; font-weight:700; cursor:pointer;">📋 Tap to copy link</button>
+      <div id="copyUrl" style="font-family:monospace; font-size:10px; color:#525261; word-break:break-all; background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:8px; margin-top:6px;"></div>
+    </div>
+
+    <div class="footer">
+      Android only for now. After tapping Install you may have to allow "install from unknown sources" — it's safe, that's just because the app isn't on the Play Store.
+    </div>
+  </div>
+
+<script>
+  var APK_URL = "https://github.com/adrockisahussla/ChoreBuddy/releases/latest/download/ChoreBuddy.apk";
+  var LANDING_URL = window.location.href;
+  var ua = navigator.userAgent || '';
+  var isAndroid = /Android/.test(ua);
+
+  document.getElementById('installBtn').href = APK_URL;
+
+  // Show the "Open in Chrome" escape hatch on all Android visitors,
+  // regardless of whether we can detect an in-app webview. UA sniffing
+  // for Gmail/FB webviews is unreliable; better to always show it as
+  // a fallback than to guess wrong.
+  if (isAndroid) {
+    document.getElementById('copyUrl').textContent = LANDING_URL;
+    document.getElementById('androidHelp').style.display = 'block';
+
+    var copyBtn = document.getElementById('copyBtn');
+    copyBtn.addEventListener('click', function () {
+      var done = function () { copyBtn.textContent = '✓ Copied — open Chrome and paste'; };
+      var fail = function () { copyBtn.textContent = '⚠ Couldn’t copy. Long-press the link below.'; };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(LANDING_URL).then(done).catch(fail);
+      } else {
+        try {
+          var t = document.createElement('textarea');
+          t.value = LANDING_URL;
+          document.body.appendChild(t);
+          t.select();
+          document.execCommand('copy');
+          document.body.removeChild(t);
+          done();
+        } catch (e) { fail(); }
+      }
+    });
+  }
+
+  var params = new URLSearchParams(window.location.search);
+  var token = (params.get("invite") || params.get("token") || "").toUpperCase();
+  if (token) {
+    document.getElementById("token").textContent = token;
+  } else {
+    document.getElementById("tokenBlock").innerHTML =
+      '<div class="no-token">No invite code in the link. Ask the person who invited you to send a new one.</div>';
+  }
+</script>
+</body>
+</html>

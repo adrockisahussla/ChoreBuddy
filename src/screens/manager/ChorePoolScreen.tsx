@@ -6,10 +6,12 @@ import { theme } from '../../theme';
 import { POINTS_PER } from '../../utils/buddy';
 import { useChorePool } from '../../hooks/useChorePool';
 import { useBuddies } from '../../hooks/useBuddies';
+import { useFamilyMembers } from '../../hooks/useFamilyMembers';
 import { useFamilyId } from '../../hooks/useFamilyId';
+import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { chorePoolService } from '../../services/chorePoolService';
 import { choreService, getEndOfWeek, getWeekOf } from '../../services/choreService';
-import { Header, Screen, Card, Avatar, Pill, Button, Text, useConfirm, DateWheel, RecurrencePicker, recurrenceLabel, DayOfWeekPicker, weekdaysLabel, nextWeekdayDate, SCREEN_BOTTOM_PAD } from '../../components';
+import { Header, Screen, Card, Avatar, Pill, Button, Text, useConfirm, DateWheel, RecurrencePicker, recurrenceLabel, DayOfWeekPicker, weekdaysLabel, nextWeekdayDate, TimeWheel, SCREEN_BOTTOM_PAD } from '../../components';
 
 export default function ChorePoolScreen({ navigation }: any) {
   const { chorePool } = useChorePool();
@@ -108,8 +110,15 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
   const [recurOpen, setRecurOpen] = useState(false);
   const [weekdays, setWeekdays] = useState<number[]>([new Date().getDay()]);
   const [dayOpen, setDayOpen] = useState(false);
+  const [remindBefore, setRemindBefore] = useState<number | null>(null);
+  const [time, setTime] = useState<{ h: number; m: number }>(() => {
+    const n = new Date();
+    return { h: n.getHours(), m: n.getMinutes() };
+  });
+  const [wheelOpen, setWheelOpen] = useState(false);
   const { buddies } = useBuddies();
   const familyId = useFamilyId();
+  const { fbUser } = useCurrentUser();
 
   const buildPool = (): Omit<ChorePoolItem, 'id' | 'createdAt'> => ({
     familyId: familyId || '',
@@ -118,22 +127,20 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
     points,
   });
   const buildAssigned = (buddyUid: string) => {
+    const applyTime = (d: Date) => { d.setHours(time.h, time.m, 0, 0); return d; };
     const dueDate = recur === 'daily'
-      ? (() => { const d = new Date(); d.setHours(23, 59, 59, 999); return d.getTime(); })()
+      ? applyTime(new Date()).getTime()
       : recur === 'once'
-        ? (() => { const d = new Date(onceDate!); d.setHours(23, 59, 59, 999); return d.getTime(); })()
-        : (() => {
-            // Weekly — due on the soonest chosen weekday (today counts) at end of day.
-            const d = nextWeekdayDate(weekdays);
-            d.setHours(23, 59, 59, 999);
-            return d.getTime();
-          })();
+        ? applyTime(new Date(onceDate!)).getTime()
+        : applyTime(nextWeekdayDate(weekdays)).getTime();
     return {
       familyId: familyId || '',
       title: title.trim(), assignedTo: buddyUid, status: 'todo' as const, rejectionNote: '',
       recurrence: recur, dueDate, weekOf: getWeekOf(new Date(dueDate)),
       points, completedAt: 0, overdue: false,
       ...(recur === 'weekly' ? { weekdays } : {}),
+      ...(remindBefore != null ? { remindBeforeMinutes: remindBefore } : {}),
+      ...(fbUser?.uid ? { createdBy: fbUser.uid } : {}),
     };
   };
   const savePoolOnly = async () => {
@@ -240,10 +247,44 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
           </>
         )}
 
+        <Text variant="sectionLabel" style={{ marginTop: 16 }}>Due time</Text>
+        <TouchableOpacity style={s.dateFieldBtn} onPress={() => setWheelOpen(true)}>
+          <RNText style={s.dateIcon}>🕒</RNText>
+          <RNText style={s.dateText} numberOfLines={1}>
+            {(() => {
+              const period = time.h >= 12 ? 'PM' : 'AM';
+              const h12 = time.h % 12 === 0 ? 12 : time.h % 12;
+              return `${h12}:${String(time.m).padStart(2, '0')} ${period}`;
+            })()}
+          </RNText>
+          <RNText style={s.dateChev}>›</RNText>
+        </TouchableOpacity>
+
         <Text variant="sectionLabel" style={{ marginTop: 16 }}>Point value</Text>
         <View style={s.pillRow}>
           {[5, 10, 15, 20, 50].map(p => (
             <Pill key={p} label={String(p)} size="sm" active={points === p} onPress={() => setPoints(p)} />
+          ))}
+        </View>
+
+        <Text variant="sectionLabel" style={{ marginTop: 16 }}>Remind me before due</Text>
+        <View style={s.pillRow}>
+          {([
+            { label: 'None', value: null },
+            { label: '2 min', value: 2 },
+            { label: '30 min', value: 30 },
+            { label: '1 hr', value: 60 },
+            { label: '2 hrs', value: 120 },
+            { label: '4 hrs', value: 240 },
+            { label: '1 day', value: 1440 },
+          ] as Array<{ label: string; value: number | null }>).map(opt => (
+            <Pill
+              key={String(opt.value)}
+              label={opt.label}
+              size="sm"
+              active={remindBefore === opt.value}
+              onPress={() => setRemindBefore(opt.value)}
+            />
           ))}
         </View>
 
@@ -292,7 +333,10 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
                   onPress={() => { setPickerOpen(false); saveAndAssignTo(b.uid); }}
                 >
                   <Avatar emoji={b.avatar || '👤'} accent={b.accent} size="sm" />
-                  <Text variant="h3" style={{ fontSize: 15, flex: 1 }}>{b.displayName}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text variant="h3" style={{ fontSize: 15 }}>{b.displayName}</Text>
+                    {!!b.email && <Text variant="tiny" style={{ fontSize: 11, marginTop: 2, opacity: 0.7 }}>{b.email}</Text>}
+                  </View>
                   <RNText style={s.sheetCheck}>›</RNText>
                 </TouchableOpacity>
               ))
@@ -306,6 +350,13 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
         initial={onceDate || undefined}
         onClose={() => setDateWheelOpen(false)}
         onConfirm={(d) => setOnceDate(d)}
+      />
+
+      <TimeWheel
+        visible={wheelOpen}
+        initial={time}
+        onClose={() => setWheelOpen(false)}
+        onConfirm={(v) => setTime(v)}
       />
 
       <RecurrencePicker

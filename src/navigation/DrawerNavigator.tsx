@@ -8,9 +8,7 @@ import BuddiesStack from './BuddiesStack';
 import ChorePoolScreen from '../screens/manager/ChorePoolScreen';
 import RemindersScreen from '../screens/manager/RemindersScreen';
 import SettingsScreen from '../screens/manager/SettingsScreen';
-import BuddyHomeScreen from '../screens/buddy/BuddyHomeScreen';
-import BuddyChoresScreen from '../screens/buddy/BuddyChoresScreen';
-import BuddyRewardsScreen from '../screens/buddy/BuddyRewardsScreen';
+import FirewallScreen from '../screens/manager/FirewallScreen';
 import { theme } from '../theme';
 import { authService } from '../services/authService';
 import { useCurrentUser } from '../hooks/useCurrentUser';
@@ -18,28 +16,26 @@ import { useConfirm } from '../components/ConfirmModal';
 
 const Drawer = createDrawerNavigator();
 
-type DrawerItem = { route: string; label: string; icon: string; managerOnly?: boolean; buddyOnly?: boolean };
+// Single app: everyone sees the same screens. Firewall is the only
+// manager-gated entry (system-control feature). The buddy/manager role
+// stays in the data model but only affects firewall visibility.
+type DrawerItem = { route: string; label: string; icon: string; managerOnly?: boolean };
 const ITEMS: DrawerItem[] = [
   { route: 'Home',        label: 'Home',       icon: '🏠' },
-  { route: 'Buddies',     label: 'Buddies',    icon: '👥', managerOnly: true },
-  { route: 'ChorePool',   label: 'Chore Pool', icon: '⭐', managerOnly: true },
-  { route: 'MyChores',    label: 'My Chores',  icon: '✅', buddyOnly: true },
+  { route: 'Buddies',     label: 'Family',     icon: '👥' },
+  { route: 'ChorePool',   label: 'Chore Pool', icon: '⭐' },
   { route: 'Reminders',   label: 'Reminders',  icon: '🔔' },
-  { route: 'MyRewards',   label: 'Rewards',    icon: '🎁', buddyOnly: true },
+  { route: 'Firewall',    label: 'Firewall',   icon: '🚫', managerOnly: true },
   { route: 'Settings',    label: 'Settings',   icon: '⚙️' },
 ];
 
 function CustomDrawerContent(props: any) {
   const { fbUser, userDoc } = useCurrentUser();
-  const isBuddy = userDoc?.role === 'buddy';
-  const name = userDoc?.displayName || fbUser?.displayName || (isBuddy ? 'Buddy' : 'Manager');
+  const isManager = userDoc?.role !== 'buddy';
+  const name = userDoc?.displayName || fbUser?.displayName || 'Member';
   const email = fbUser?.email || '';
   const confirm = useConfirm();
-  const visibleItems = ITEMS.filter(it => {
-    if (it.managerOnly && isBuddy) return false;
-    if (it.buddyOnly && !isBuddy) return false;
-    return true;
-  });
+  const visibleItems = ITEMS.filter(it => !(it.managerOnly && !isManager));
 
   const signOut = async () => {
     const ok = await confirm({
@@ -69,7 +65,7 @@ function CustomDrawerContent(props: any) {
           <View style={{ flex: 1 }}>
             <Text style={s.userName}>{name}</Text>
             {!!email && <Text style={s.userEmail} numberOfLines={1}>{email}</Text>}
-            <Text style={s.userRole}>{isBuddy ? 'Buddy' : 'Manager'}</Text>
+            <Text style={s.userRole}>{isManager ? 'Manager' : 'Buddy'}</Text>
           </View>
         </View>
         <View style={{ padding: 8 }}>
@@ -97,7 +93,7 @@ function CustomDrawerContent(props: any) {
 
 export default function DrawerNavigator() {
   const { userDoc } = useCurrentUser();
-  const isBuddy = userDoc?.role === 'buddy';
+  const isManager = userDoc?.role !== 'buddy';
   return (
     <Drawer.Navigator
       drawerContent={CustomDrawerContent}
@@ -106,25 +102,12 @@ export default function DrawerNavigator() {
         drawerStyle: { backgroundColor: theme.colors.bg, width: 280 },
       }}
     >
-      {/* Home swaps based on role — manager gets the full HomeStack with deep
-          links; buddy gets a slim buddy-flavored Home. */}
-      <Drawer.Screen
-        name="Home"
-        component={isBuddy ? BuddyHomeScreen : HomeStack}
-        options={{ title: 'Home' }}
-      />
-      {!isBuddy && (
-        <Drawer.Screen name="Buddies" component={BuddiesStack} options={{ title: 'Buddies' }} />
-      )}
-      {!isBuddy && (
-        <Drawer.Screen name="ChorePool" component={ChorePoolScreen} options={{ title: 'Chore Pool' }} />
-      )}
-      {isBuddy && (
-        <Drawer.Screen name="MyChores" component={BuddyChoresScreen} options={{ title: 'My Chores' }} />
-      )}
+      <Drawer.Screen name="Home" component={HomeStack} options={{ title: 'Home' }} />
+      <Drawer.Screen name="Buddies" component={BuddiesStack} options={{ title: 'Family' }} />
+      <Drawer.Screen name="ChorePool" component={ChorePoolScreen} options={{ title: 'Chore Pool' }} />
       <Drawer.Screen name="Reminders" component={RemindersScreen} options={{ title: 'Reminders' }} />
-      {isBuddy && (
-        <Drawer.Screen name="MyRewards" component={BuddyRewardsScreen} options={{ title: 'Rewards' }} />
+      {isManager && (
+        <Drawer.Screen name="Firewall" component={FirewallScreen} options={{ title: 'Firewall' }} />
       )}
       <Drawer.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
     </Drawer.Navigator>
