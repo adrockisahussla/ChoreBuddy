@@ -69,6 +69,7 @@ export default function BuddyChoresScreen({ navigation }: any) {
         completedAt: Date.now(),
         rejectionNote: '',
         notifiedAssigner: false,
+        notifiedAssignee: false,
       });
       setTab('waiting');
       if (Platform.OS === 'android') {

@@ -33,6 +33,31 @@ async function ensureChannel(): Promise<void> {
  * just submitted for their approval. Fired by usePendingChoreNotifier
  * when a chore in their family flips to status='pending'.
  */
+/**
+ * Display a foreground notification telling a buddy/co-manager that the
+ * chore they submitted was approved. Each chore gets its own
+ * notification (stable id) so the shade stacks them rather than
+ * collapsing into one.
+ */
+export async function notifyChoreApproved(opts: {
+  choreId: string;
+  choreTitle: string;
+  points: number;
+}): Promise<void> {
+  await ensureChannel();
+  await notifee.displayNotification({
+    id: `chore-approved-${opts.choreId}`,
+    title: '🎉 Chore approved',
+    body: `"${opts.choreTitle}" — +${opts.points} points earned`,
+    android: {
+      channelId: CHANNEL_ID,
+      importance: AndroidImportance.HIGH,
+      pressAction: { id: 'default' },
+      smallIcon: 'ic_launcher',
+    },
+  });
+}
+
 export async function notifyChoreSubmittedForApproval(opts: {
   choreId: string;
   choreTitle: string;

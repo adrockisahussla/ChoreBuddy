@@ -18,6 +18,7 @@ import { getTextScale } from './src/utils/textScale';
 import { useReminderScheduling } from './src/hooks/useReminderScheduling';
 import { useChoreReminderScheduling } from './src/hooks/useChoreReminderScheduling';
 import { usePendingChoreNotifier } from './src/hooks/usePendingChoreNotifier';
+import { useApprovedChoreNotifier } from './src/hooks/useApprovedChoreNotifier';
 
 configureGoogleSignin();
 // App Check temporarily disabled until Play Integrity API is enabled in
@@ -78,6 +79,7 @@ function ReminderSchedulerHost() {
   useReminderScheduling();
   useChoreReminderScheduling();
   usePendingChoreNotifier();
+  useApprovedChoreNotifier();
   return null;
 }
 

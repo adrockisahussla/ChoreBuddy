@@ -29,6 +29,9 @@ export interface Chore {
   /** True once the assigner has been notified of a submitted chore.
    *  Cleared whenever the buddy re-submits. */
   notifiedAssigner?: boolean;
+  /** True once the assignee has been notified that their chore was
+   *  approved. Cleared when the chore goes back to pending. */
+  notifiedAssignee?: boolean;
 }
 
 export interface ChorePoolItem {

@@ -155,6 +155,7 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
                   completedAt: Date.now(),
                   rejectionNote: '',
                   notifiedAssigner: false,
+                  notifiedAssignee: false,
                 });
                 setTab('pending');
                 if (Platform.OS === 'android') {
@@ -165,7 +166,11 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
               return;
             }
             // Reviewing someone else's chore — approve directly.
-            choreService.update(c.id, { status: 'approved', completedAt: Date.now() });
+            choreService.update(c.id, {
+              status: 'approved',
+              completedAt: Date.now(),
+              notifiedAssignee: false,
+            });
             if (Platform.OS === 'android') {
               ToastAndroid.show(`✓ Approved "${c.title}"`, ToastAndroid.SHORT);
             }

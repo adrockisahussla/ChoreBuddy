@@ -145,7 +145,7 @@ export default function ActiveChoresScreen({ navigation }: any) {
                 <ChoreRow
                   key={c.id}
                   chore={c}
-                  onApprove={() => choreService.update(c.id, { status: 'approved', completedAt: Date.now() })}
+                  onApprove={() => choreService.update(c.id, { status: 'approved', completedAt: Date.now(), notifiedAssignee: false })}
                   onReject={() => openReject(c.id)}
                   onEdit={() => setEditing(c)}
                   onDelete={() => onDelete(c)}
