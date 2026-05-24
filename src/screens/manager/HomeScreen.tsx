@@ -31,7 +31,10 @@ export default function HomeScreen({ navigation }: any) {
   const [addOpen, setAddOpen] = useState(false);
   const confirm = useConfirm();
 
-  const pendingChores = chores.filter(c => c.status === 'pending').length;
+  const pendingChores = chores.filter(c =>
+    c.status === 'pending' &&
+    (c.createdBy ? c.createdBy === myUid : true /* legacy fallback */),
+  ).length;
   const pendingRewards = rewardItems.filter(r => r.status === 'requested').length;
   const pendingClaims = rewardClaims.filter(c => c.status === 'pending').length;
   const totalPending = pendingChores + pendingRewards + pendingClaims;

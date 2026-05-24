@@ -3,6 +3,7 @@ import { View, ScrollView, TouchableOpacity, StyleSheet, Modal, TextInput, Keybo
 import { useChores } from '../../hooks/useChores';
 import { useBuddies } from '../../hooks/useBuddies';
 import { useFamilyMembers } from '../../hooks/useFamilyMembers';
+import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { theme } from '../../theme';
 import { chorePoints, isOverdue, buddyLabel } from '../../utils/buddy';
 import { statusLabel, statusPillStyle } from '../../utils/choreStatus';
@@ -18,6 +19,9 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
   const { chores } = useChores();
   const { buddies } = useBuddies();
   const { members } = useFamilyMembers();
+  const { fbUser } = useCurrentUser();
+  const myUid = fbUser?.uid;
+  const viewingSelf = buddyUid === myUid;
   const assignerName = (uid?: string) =>
     uid ? (members.find(m => m.uid === uid)?.displayName || 'someone') : 'someone';
   const [selectedWeek, setSelectedWeek] = useState<string>(currentWeek());
@@ -138,7 +142,27 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
         ) : tabChores.map(c => {
           const overdue = isOverdue(c);
           const isDone = c.status === 'approved';
-          const approve = () => choreService.update(c.id, { status: 'approved', completedAt: Date.now() });
+          const onTapCircle = () => {
+            if (viewingSelf) {
+              // I'm the assignee — submit for review instead of self-approving.
+              if (c.status === 'todo' || c.status === 'rejected') {
+                choreService.update(c.id, {
+                  status: 'pending',
+                  completedAt: Date.now(),
+                  rejectionNote: '',
+                  notifiedAssigner: false,
+                });
+                setTab('pending');
+                if (Platform.OS === 'android') {
+                  ToastAndroid.show('✓ Sent for approval', ToastAndroid.SHORT);
+                }
+              }
+              // status === 'pending' for self is a no-op (waiting on assigner).
+              return;
+            }
+            // Reviewing someone else's chore — approve directly.
+            choreService.update(c.id, { status: 'approved', completedAt: Date.now() });
+          };
           return (
             <View key={c.id} style={[s.row, overdue && s.rowOverdue]}>
               {isDone ? (
@@ -147,7 +171,7 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
                 </View>
               ) : (
                 <TouchableOpacity
-                  onPress={approve}
+                  onPress={onTapCircle}
                   hitSlop={8}
                   activeOpacity={0.6}
                   style={[s.checkbox, c.status === 'pending' && s.checkboxPending]}
@@ -165,7 +189,7 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
                 </Text>
               </View>
 
-              {c.status === 'pending' ? (
+              {viewingSelf ? null : c.status === 'pending' ? (
                 <TouchableOpacity style={s.reject} onPress={() => openReject(c.id)}>
                   <RNText style={s.iconText}>✕</RNText>
                 </TouchableOpacity>

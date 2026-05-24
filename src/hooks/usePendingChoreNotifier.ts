@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Platform, ToastAndroid } from 'react-native';
 import { useChores } from './useChores';
-import { useBuddies } from './useBuddies';
+import { useFamilyMembers } from './useFamilyMembers';
 import { useCurrentUser } from './useCurrentUser';
 import { choreService } from '../services/choreService';
 import { notifyChoreSubmittedForApproval } from '../services/notificationService';
@@ -23,7 +23,7 @@ import { notifyChoreSubmittedForApproval } from '../services/notificationService
 export function usePendingChoreNotifier(): void {
   const { fbUser, userDoc } = useCurrentUser();
   const { chores } = useChores();
-  const { buddies } = useBuddies();
+  const { members } = useFamilyMembers();
   const myUid = fbUser?.uid;
   const iAmManager = userDoc?.role === 'manager';
 
@@ -38,8 +38,8 @@ export function usePendingChoreNotifier(): void {
     if (targets.length === 0) return;
 
     for (const chore of targets) {
-      const buddy = buddies.find(b => b.uid === chore.assignedTo);
-      const who = buddy?.displayName || 'A buddy';
+      const submitter = members.find(m => m.uid === chore.assignedTo);
+      const who = submitter?.displayName || 'Someone';
       if (Platform.OS === 'android') {
         ToastAndroid.showWithGravity(
           `⏳ ${who} submitted "${chore.title}" — review it`,
@@ -50,9 +50,9 @@ export function usePendingChoreNotifier(): void {
       notifyChoreSubmittedForApproval({
         choreId: chore.id,
         choreTitle: chore.title,
-        buddyName: buddy?.displayName,
+        buddyName: submitter?.displayName,
       }).catch(() => { /* notification failure is non-fatal */ });
       choreService.update(chore.id, { notifiedAssigner: true }).catch(() => { /* swallow */ });
     }
-  }, [chores, buddies, myUid, iAmManager]);
+  }, [chores, members, myUid, iAmManager]);
 }
