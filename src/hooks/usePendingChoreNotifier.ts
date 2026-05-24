@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { Platform, ToastAndroid } from 'react-native';
 import { useChores } from './useChores';
 import { useFamilyMembers } from './useFamilyMembers';
 import { useCurrentUser } from './useCurrentUser';
@@ -39,14 +38,9 @@ export function usePendingChoreNotifier(): void {
 
     for (const chore of targets) {
       const submitter = members.find(m => m.uid === chore.assignedTo);
-      const who = submitter?.displayName || 'Someone';
-      if (Platform.OS === 'android') {
-        ToastAndroid.showWithGravity(
-          `⏳ ${who} submitted "${chore.title}" — review it`,
-          ToastAndroid.LONG,
-          ToastAndroid.TOP,
-        );
-      }
+      // In-app bottom toast is handled by SubmissionToasts (fires for the
+      // whole family). Here we only own the Notifee system-tray notification
+      // and the persisted `notifiedAssigner` flag.
       notifyChoreSubmittedForApproval({
         choreId: chore.id,
         choreTitle: chore.title,

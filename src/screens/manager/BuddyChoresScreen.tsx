@@ -89,7 +89,11 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
     if (!rejectingId) return;
     const note = rejectionNote.trim();
     if (!note) return;
+    const choreTitle = chores.find(c => c.id === rejectingId)?.title || 'chore';
     choreService.update(rejectingId, { status: 'rejected', rejectionNote: note });
+    if (Platform.OS === 'android') {
+      ToastAndroid.show(`✗ Rejected "${choreTitle}"`, ToastAndroid.SHORT);
+    }
     closeReject();
   };
 
@@ -162,6 +166,9 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
             }
             // Reviewing someone else's chore — approve directly.
             choreService.update(c.id, { status: 'approved', completedAt: Date.now() });
+            if (Platform.OS === 'android') {
+              ToastAndroid.show(`✓ Approved "${c.title}"`, ToastAndroid.SHORT);
+            }
           };
           return (
             <View key={c.id} style={[s.row, overdue && s.rowOverdue]}>

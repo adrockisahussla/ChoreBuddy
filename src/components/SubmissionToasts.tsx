@@ -2,8 +2,10 @@ import { useEffect, useRef } from 'react';
 import { Platform, ToastAndroid } from 'react-native';
 import { useChores } from '../hooks/useChores';
 import { useRewards, useRewardClaims } from '../hooks/useRewards';
-import { useBuddies } from '../hooks/useBuddies';
-import { buddyLabel } from '../utils/buddy';
+import { useFamilyMembers } from '../hooks/useFamilyMembers';
+
+const memberName = (uid: string, members: Array<{ uid: string; displayName: string }>) =>
+  members.find(m => m.uid === uid)?.displayName || 'Someone';
 
 /**
  * Mounted once high in the tree (inside AuthGateway). Watches the family's
@@ -17,7 +19,7 @@ export default function SubmissionToasts() {
   const { chores, loading: choresLoading } = useChores();
   const { rewardItems, loading: rewardsLoading } = useRewards();
   const { rewardClaims, loading: claimsLoading } = useRewardClaims();
-  const { buddies } = useBuddies();
+  const { members } = useFamilyMembers();
 
   const prevChoreStatus = useRef(new Map<string, string>());
   const prevRewardStatus = useRef(new Map<string, string>());
@@ -40,14 +42,14 @@ export default function SubmissionToasts() {
         const prev = prevChoreStatus.current.get(c.id);
         if (prev !== 'pending' && c.status === 'pending') {
           ToastAndroid.show(
-            `✓ ${buddyLabel(c.assignedTo, buddies)} marked "${c.title}" done`,
+            `✓ ${memberName(c.assignedTo, members)} marked "${c.title}" done`,
             ToastAndroid.SHORT,
           );
         }
       });
     }
     prevChoreStatus.current = next;
-  }, [chores, choresLoading, buddies]);
+  }, [chores, choresLoading, members]);
 
   useEffect(() => {
     if (rewardsLoading) { rewardWasLoading.current = true; return; }
@@ -63,14 +65,14 @@ export default function SubmissionToasts() {
         const prev = prevRewardStatus.current.get(r.id);
         if (prev !== 'requested' && r.status === 'requested') {
           ToastAndroid.show(
-            `🎁 ${buddyLabel(r.kidId, buddies)} suggested "${r.title}" (${r.suggestedCost} pts)`,
+            `🎁 ${memberName(r.kidId, members)} suggested "${r.title}" (${r.suggestedCost} pts)`,
             ToastAndroid.SHORT,
           );
         }
       });
     }
     prevRewardStatus.current = next;
-  }, [rewardItems, rewardsLoading, buddies]);
+  }, [rewardItems, rewardsLoading, members]);
 
   useEffect(() => {
     if (claimsLoading) { claimWasLoading.current = true; return; }
@@ -86,14 +88,14 @@ export default function SubmissionToasts() {
         const prev = prevClaimStatus.current.get(c.id);
         if (prev !== 'pending' && c.status === 'pending') {
           ToastAndroid.show(
-            `💸 ${buddyLabel(c.kidId, buddies)} wants to claim "${c.rewardTitle}" (${c.cost} pts)`,
+            `💸 ${memberName(c.kidId, members)} wants to claim "${c.rewardTitle}" (${c.cost} pts)`,
             ToastAndroid.SHORT,
           );
         }
       });
     }
     prevClaimStatus.current = next;
-  }, [rewardClaims, claimsLoading, buddies]);
+  }, [rewardClaims, claimsLoading, members]);
 
   return null;
 }
