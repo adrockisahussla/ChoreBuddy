@@ -1,5 +1,8 @@
 # ChoreBuddy — Handoff for Next Session
 
+> **Event/notification spec:** `docs/EVENT_FLOWS.md` is the canonical reference for every event in the app — who triggers it, who's notified, exact toasts/Firestore writes/persistence flags. Update it whenever you change a notifier or toast.
+
+
 **Last updated:** 2026-05-23
 **Working dir:** `C:\ChoreBuddy` (also `C:\Users\NWI - E02\Desktop\ChoreBuddy` is the project root for Claude Code's CWD — same files via different mount; CWD is the Desktop path)
 **Current shipping APK:** v1.13 (`versionCode 14`)
