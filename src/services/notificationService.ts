@@ -91,20 +91,33 @@ interface ScheduleArgs {
   fireAt: number;
 }
 
+export type ScheduleFailReason =
+  | 'past'
+  | 'no-notification-perm'
+  | 'no-exact-alarm-perm'
+  | 'error';
+
+export type ScheduleResult =
+  | { ok: true; id: string }
+  | { ok: false; reason: ScheduleFailReason; message?: string };
+
 /**
- * Schedule a local notification to fire at `fireAt`. Returns the
- * Notifee notification id (or empty string if scheduling failed) so
- * the caller can persist it on the reminder doc.
+ * Schedule a local notification to fire at `fireAt`. Returns a tagged
+ * result so callers can distinguish past-time, missing-permission, and
+ * unexpected errors and surface a specific message to the user.
  *
- * If `fireAt` is in the past, no-ops and returns ''.
+ * Notifee replaces an existing trigger with the same id (`reminder:<docId>`).
  */
 export async function scheduleReminderNotification({
   reminderId, title, body, fireAt,
-}: ScheduleArgs): Promise<string> {
-  if (fireAt <= Date.now()) return '';
+}: ScheduleArgs): Promise<ScheduleResult> {
+  if (fireAt <= Date.now()) return { ok: false, reason: 'past' };
   try {
     await ensureChannel();
-    await requestNotificationPermission();
+    const okNotif = await requestNotificationPermission();
+    if (!okNotif) return { ok: false, reason: 'no-notification-perm' };
+    const okAlarm = await canScheduleExactAlarms();
+    if (!okAlarm) return { ok: false, reason: 'no-exact-alarm-perm' };
 
     const trigger: TimestampTrigger = {
       type: TriggerType.TIMESTAMP,
@@ -130,10 +143,10 @@ export async function scheduleReminderNotification({
       },
       trigger,
     );
-    return id;
-  } catch (e) {
+    return { ok: true, id };
+  } catch (e: any) {
     console.warn('scheduleReminderNotification failed', e);
-    return '';
+    return { ok: false, reason: 'error', message: e?.message || String(e) };
   }
 }
 
@@ -153,11 +166,14 @@ interface ChoreScheduleArgs {
  */
 export async function scheduleChoreNotification({
   choreId, phase, title, fireAt,
-}: ChoreScheduleArgs): Promise<string> {
-  if (fireAt <= Date.now()) return '';
+}: ChoreScheduleArgs): Promise<ScheduleResult> {
+  if (fireAt <= Date.now()) return { ok: false, reason: 'past' };
   try {
     await ensureChannel();
-    await requestNotificationPermission();
+    const okNotif = await requestNotificationPermission();
+    if (!okNotif) return { ok: false, reason: 'no-notification-perm' };
+    const okAlarm = await canScheduleExactAlarms();
+    if (!okAlarm) return { ok: false, reason: 'no-exact-alarm-perm' };
 
     const trigger: TimestampTrigger = {
       type: TriggerType.TIMESTAMP,
@@ -186,10 +202,10 @@ export async function scheduleChoreNotification({
       },
       trigger,
     );
-    return id;
-  } catch (e) {
+    return { ok: true, id };
+  } catch (e: any) {
     console.warn('scheduleChoreNotification failed', e);
-    return '';
+    return { ok: false, reason: 'error', message: e?.message || String(e) };
   }
 }
 

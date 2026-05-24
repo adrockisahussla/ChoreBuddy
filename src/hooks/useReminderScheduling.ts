@@ -45,12 +45,15 @@ export function useReminderScheduling(): void {
       for (const r of mine) {
         if (cancelled) return;
         try {
-          await scheduleReminderNotification({
+          const res = await scheduleReminderNotification({
             reminderId: r.id,
             title: r.title,
             body: '',
             fireAt: r.dueDate,
           });
+          if (!res.ok && res.reason !== 'past') {
+            console.warn('reminder schedule failed', r.id, res.reason);
+          }
         } catch {}
       }
 

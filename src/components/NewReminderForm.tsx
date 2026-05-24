@@ -86,12 +86,24 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
     setLoading(false);
   }, [visible, reminder, defaultBuddyUid]);
 
+  const previewDue = (() => {
+    if (!time) return null;
+    let d: Date;
+    if (recur === 'once' && onceDate) d = new Date(onceDate);
+    else if (recur === 'weekly') d = nextWeekdayDate(weekdays);
+    else d = new Date();
+    d.setHours(time.h, time.m, 0, 0);
+    return d.getTime();
+  })();
+  const isPastTime = previewDue !== null && previewDue <= Date.now() + 30_000;
+
   const canSave =
     !!title.trim() &&
     !!familyId &&
     assignTos.length > 0 &&
     (recur !== 'once' || !!onceDate) &&
     !!time &&
+    !isPastTime &&
     !loading;
 
   /** Compute the dueDate epoch ms from the form state. */
@@ -143,6 +155,16 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
         ...(recur === 'weekly' ? { weekdays } : {}),
       });
 
+      const announceFailure = (res: Extract<Awaited<ReturnType<typeof scheduleReminderNotification>>, { ok: false }>) => {
+        if (Platform.OS !== 'android') return;
+        const msg =
+          res.reason === 'past' ? 'Reminder time is in the past — pick a future time'
+          : res.reason === 'no-notification-perm' ? 'Notifications are off — open Settings to grant'
+          : res.reason === 'no-exact-alarm-perm' ? 'Exact-alarm permission is off — open Settings to grant'
+          : `Reminder scheduling failed: ${res.message || 'unknown'}`;
+        ToastAndroid.show(msg, ToastAndroid.LONG);
+      };
+
       if (isEdit && reminder) {
         // Edit mode is single-buddy. assignTos[0] is the (possibly changed) target.
         const data = buildData(assignTos[0]);
@@ -151,35 +173,49 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
           await cancelReminderNotification(reminder.notificationId);
         }
         const buddy = buddies.find(b => b.uid === assignTos[0]);
-        const notificationId = await scheduleReminderNotification({
+        const res = await scheduleReminderNotification({
           reminderId: reminder.id,
           title: title.trim(),
           body: buddy?.displayName ? `For ${buddy.displayName}` : '',
           fireAt: dueDate,
         });
-        if (notificationId) await reminderService.update(reminder.id, { notificationId });
-        if (Platform.OS === 'android') {
-          ToastAndroid.show(`✓ Updated "${title.trim()}"`, ToastAndroid.SHORT);
+        if (res.ok) {
+          await reminderService.update(reminder.id, { notificationId: res.id });
+          if (Platform.OS === 'android') {
+            ToastAndroid.show(`✓ Updated "${title.trim()}"`, ToastAndroid.SHORT);
+          }
+        } else {
+          announceFailure(res);
         }
       } else {
         // Create mode — one Reminder doc per selected buddy.
+        let scheduled = 0;
+        let lastFail: Extract<Awaited<ReturnType<typeof scheduleReminderNotification>>, { ok: false }> | null = null;
         for (const uid of assignTos) {
           const data = buildData(uid);
           const ref = await reminderService.add(data);
           const buddy = buddies.find(b => b.uid === uid);
-          const notificationId = await scheduleReminderNotification({
+          const res = await scheduleReminderNotification({
             reminderId: ref.id,
             title: title.trim(),
             body: buddy?.displayName ? `For ${buddy.displayName}` : '',
             fireAt: dueDate,
           });
-          if (notificationId) await reminderService.update(ref.id, { notificationId });
+          if (res.ok) {
+            await reminderService.update(ref.id, { notificationId: res.id });
+            scheduled += 1;
+          } else {
+            lastFail = res;
+          }
         }
         if (Platform.OS === 'android') {
-          const summary = assignTos.length === 1
-            ? `for ${buddies.find(b => b.uid === assignTos[0])?.displayName ?? 'buddy'}`
-            : `for ${assignTos.length} buddies`;
-          ToastAndroid.show(`✓ Reminder set ${summary}`, ToastAndroid.SHORT);
+          if (scheduled > 0) {
+            const summary = assignTos.length === 1
+              ? `for ${buddies.find(b => b.uid === assignTos[0])?.displayName ?? 'buddy'}`
+              : `for ${scheduled} buddies`;
+            ToastAndroid.show(`✓ Reminder set ${summary}`, ToastAndroid.SHORT);
+          }
+          if (lastFail) announceFailure(lastFail);
         }
       }
       onClose();
@@ -262,6 +298,11 @@ export default function NewReminderForm({ visible, onClose, defaultBuddyUid, rem
             </RNText>
             <RNText style={s.timeChev}>›</RNText>
           </TouchableOpacity>
+          {isPastTime && (
+            <RNText style={s.helperError}>
+              Pick a time at least a few seconds in the future.
+            </RNText>
+          )}
 
           <Text variant="sectionLabel" style={{ marginTop: 16 }}>
             {isEdit ? 'Assigned to' : 'Assign to'}
@@ -372,4 +413,8 @@ const s = StyleSheet.create({
   timeIcon: { fontSize: 18 },
   timeText: { flex: 1, color: theme.colors.text, fontWeight: '700', fontSize: 16 },
   timeChev: { color: theme.colors.muted, fontSize: 22, fontWeight: '700' },
+  helperError: {
+    color: theme.colors.danger, fontSize: 12, fontWeight: '700',
+    marginTop: 6, marginLeft: 4,
+  },
 });

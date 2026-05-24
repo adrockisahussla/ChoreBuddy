@@ -1,9 +1,25 @@
-import React, { useState } from 'react';
-import { View, ScrollView, TouchableOpacity, StyleSheet, Text as RNText, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, ScrollView, TouchableOpacity, StyleSheet, Text as RNText, ActivityIndicator, Platform, ToastAndroid, AppState } from 'react-native';
 import { theme } from '../../theme';
 import { Header, Screen, Card, Text, SCREEN_BOTTOM_PAD } from '../../components';
 import { useTextScale } from '../../context/TextScaleContext';
 import { checkLatestRelease, installApk, CURRENT_VERSION, ReleaseInfo } from '../../services/updateService';
+import {
+  checkReminderPermissions, requestReminderPermissions,
+  openAlarmSettings, openOverlaySettings, openAppNotificationSettings,
+  PermissionStatus,
+} from '../../services/permissions';
+import { scheduleReminderNotification } from '../../services/notificationService';
+
+function PermRow({ label, granted, onPress }: { label: string; granted: boolean; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={s.permRow} onPress={onPress} activeOpacity={0.7}>
+      <RNText style={[s.permMark, granted ? s.permMarkOk : s.permMarkBad]}>{granted ? '✓' : '✗'}</RNText>
+      <RNText style={s.permLabel}>{label}</RNText>
+      <RNText style={s.permAction}>{granted ? 'Granted' : 'Fix →'}</RNText>
+    </TouchableOpacity>
+  );
+}
 
 export default function SettingsScreen({ navigation }: any) {
   const { scale, bumpUp, bumpDown, setScale, min, max } = useTextScale();
@@ -15,6 +31,44 @@ export default function SettingsScreen({ navigation }: any) {
   const [installing, setInstalling] = useState(false);
   const [latest, setLatest] = useState<ReleaseInfo | null>(null);
   const [updateMsg, setUpdateMsg] = useState<string>('');
+
+  const [perms, setPerms] = useState<PermissionStatus | null>(null);
+  const refreshPerms = async () => setPerms(await checkReminderPermissions());
+  useEffect(() => {
+    refreshPerms();
+    // Re-check whenever the user comes back from a system settings page.
+    const sub = AppState.addEventListener('change', s => {
+      if (s === 'active') refreshPerms();
+    });
+    return () => sub.remove();
+  }, []);
+
+  const onTestReminder = async () => {
+    const fireAt = Date.now() + 10_000;
+    const res = await scheduleReminderNotification({
+      reminderId: `test-${Date.now()}`,
+      title: 'Test reminder',
+      body: 'If you see this, your reminders pipeline is working.',
+      fireAt,
+    });
+    if (Platform.OS !== 'android') return;
+    if (res.ok) {
+      ToastAndroid.show('✓ Test reminder set for 10 seconds from now', ToastAndroid.LONG);
+    } else {
+      const msg =
+        res.reason === 'no-notification-perm' ? 'Notifications permission missing — fix above'
+        : res.reason === 'no-exact-alarm-perm' ? 'Exact-alarm permission missing — fix above'
+        : res.reason === 'past' ? 'Past-time guard tripped (should not happen)'
+        : `Test failed: ${res.message || 'unknown'}`;
+      ToastAndroid.show(msg, ToastAndroid.LONG);
+    }
+  };
+
+  const onRequestNotif = async () => {
+    const next = await requestReminderPermissions();
+    setPerms(next);
+    if (!next.notifications) openAppNotificationSettings();
+  };
 
   const onCheckUpdate = async () => {
     setChecking(true); setUpdateMsg('');
@@ -83,6 +137,33 @@ export default function SettingsScreen({ navigation }: any) {
 
           <TouchableOpacity style={s.resetBtn} onPress={() => setScale(1.0)}>
             <RNText style={s.resetText}>Reset to default (100%)</RNText>
+          </TouchableOpacity>
+        </Card>
+
+        <Card padding={16} radius={theme.radius.lg} style={{ marginBottom: 12 }}>
+          <Text variant="sectionLabel" style={{ marginTop: 0, marginBottom: 8 }}>Reminder permissions</Text>
+          <Text style={{ fontSize: 13, color: theme.colors.muted, marginBottom: 12 }}>
+            All three must be granted or alarms silently fail on Android 12+.
+          </Text>
+
+          <PermRow
+            label="Notifications"
+            granted={perms?.notifications ?? false}
+            onPress={onRequestNotif}
+          />
+          <PermRow
+            label="Exact alarms"
+            granted={perms?.exactAlarms ?? false}
+            onPress={openAlarmSettings}
+          />
+          <PermRow
+            label="Display over other apps"
+            granted={perms?.overlay ?? false}
+            onPress={openOverlaySettings}
+          />
+
+          <TouchableOpacity style={[s.testBtn, !perms?.allGranted && s.testBtnDimmed]} onPress={onTestReminder}>
+            <RNText style={s.testBtnText}>Send test reminder (10s)</RNText>
           </TouchableOpacity>
         </Card>
 
@@ -173,4 +254,23 @@ const s = StyleSheet.create({
   updateBtnPrimary: { backgroundColor: theme.colors.accent },
   updateBtnPrimaryText: { color: '#fff', fontWeight: '800', fontSize: 13 },
   updateBtnDisabled: { opacity: 0.5 },
+
+  permRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 10, paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  permMark: { fontSize: 18, fontWeight: '900', width: 22, textAlign: 'center' },
+  permMarkOk: { color: theme.colors.success },
+  permMarkBad: { color: theme.colors.danger },
+  permLabel: { flex: 1, color: theme.colors.text, fontWeight: '700', fontSize: 14 },
+  permAction: { color: theme.colors.muted, fontWeight: '700', fontSize: 13 },
+
+  testBtn: {
+    marginTop: 12, padding: 12, borderRadius: theme.radius.lg,
+    backgroundColor: theme.colors.accent,
+    alignItems: 'center',
+  },
+  testBtnDimmed: { opacity: 0.6 },
+  testBtnText: { color: '#fff', fontWeight: '900', fontSize: 14 },
 });

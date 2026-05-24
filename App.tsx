@@ -81,6 +81,19 @@ function ReminderSchedulerHost() {
   return null;
 }
 
+/** Mount once after auth — fires the Notifee POST_NOTIFICATIONS prompt the
+ *  first time per app launch. Exact-alarm + overlay can't be requested
+ *  in-app; users grant them via the Settings screen. */
+function PermissionsBoot() {
+  const askedRef = React.useRef(false);
+  useEffect(() => {
+    if (askedRef.current) return;
+    askedRef.current = true;
+    import('./src/services/permissions').then(m => m.requestReminderPermissions()).catch(() => {});
+  }, []);
+  return null;
+}
+
 export default function App() {
   useEffect(() => {
     resetWeeklyChores(firestore()).catch(e => console.warn('resetWeeklyChores failed', e));
@@ -100,6 +113,7 @@ export default function App() {
               </ConfirmProvider>
               <ReminderAlarmHost />
               <ReminderSchedulerHost />
+              <PermissionsBoot />
             </AuthGateway>
           </TextScaleProvider>
         </CurrentUserProvider>
