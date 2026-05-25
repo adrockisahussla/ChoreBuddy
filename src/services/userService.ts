@@ -67,4 +67,14 @@ export const userService = {
     usersCol().doc(id).set(patch, { merge: true }),
 
   remove: (id: string) => usersCol().doc(id).delete(),
+
+  /** Atomically add `delta` minutes to the kid's screen-time wallet.
+   *  Uses Firestore FieldValue.increment so concurrent grants (e.g. two
+   *  co-managers tap Fulfill at once) don't trample each other. Negative
+   *  deltas are allowed for burns/refunds. */
+  addMinutes: (uid: string, delta: number) =>
+    usersCol().doc(uid).set(
+      { minutesRemaining: firestore.FieldValue.increment(delta) },
+      { merge: true },
+    ),
 };

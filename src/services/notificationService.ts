@@ -61,6 +61,36 @@ export async function notifyChoreAssigned(opts: {
 }
 
 /**
+ * Display a foreground notification telling a kid that their reward
+ * claim was approved (with minutes credited) or denied. Used by
+ * useClaimResolvedNotifier.
+ */
+export async function notifyClaimResolved(opts: {
+  claimId: string;
+  approved: boolean;
+  title: string;
+  minutes?: number;
+}): Promise<void> {
+  await ensureChannel();
+  const body = opts.approved
+    ? opts.minutes
+      ? `+${opts.minutes} min screen time added · "${opts.title}"`
+      : `"${opts.title}" was approved`
+    : `"${opts.title}" was denied`;
+  await notifee.displayNotification({
+    id: `claim-${opts.claimId}`,
+    title: opts.approved ? '🎉 Reward unlocked' : '✗ Request denied',
+    body,
+    android: {
+      channelId: CHANNEL_ID,
+      importance: AndroidImportance.HIGH,
+      pressAction: { id: 'default' },
+      smallIcon: 'ic_launcher',
+    },
+  });
+}
+
+/**
  * Display a foreground notification telling a buddy/co-manager that the
  * chore they submitted was approved. Each chore gets its own
  * notification (stable id) so the shade stacks them rather than

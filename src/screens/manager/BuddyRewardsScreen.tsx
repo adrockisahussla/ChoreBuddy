@@ -4,7 +4,9 @@ import { useRewards, useRewardClaims } from '../../hooks/useRewards';
 import { useBuddies } from '../../hooks/useBuddies';
 import { theme } from '../../theme';
 import { rewardService, claimService } from '../../services/rewardService';
+import { userService } from '../../services/userService';
 import { buddyLabel } from '../../utils/buddy';
+import { Platform, ToastAndroid } from 'react-native';
 import { Header, Screen, Card, Text, useConfirm, SCREEN_BOTTOM_PAD } from '../../components';
 
 type RewardsTab = 'pending' | 'collectable' | 'past';
@@ -119,20 +121,56 @@ export default function BuddyRewardsScreen({ route, navigation }: any) {
             {pendingClaims.length > 0 && (
               <>
                 <Text variant="sectionLabel" style={{ marginTop: 12 }}>Claims awaiting fulfillment ({pendingClaims.length})</Text>
-                {pendingClaims.map(c => (
-                  <Card key={c.id} row radius={theme.radius.lg} style={{ gap: 8, borderColor: theme.colors.accent + '60' }}>
-                    <View style={{ flex: 1 }}>
-                      <Text variant="h3" style={{ fontSize: 14 }}>🎁 {c.rewardTitle}</Text>
-                      <Text variant="meta" style={{ marginTop: 2 }}>{c.cost} pts · claimed {fmtTime(c.claimedAt)}</Text>
-                    </View>
-                    <TouchableOpacity style={s.acceptBtn} onPress={() => claimService.approve(c.id)}>
-                      <RNText style={s.actionText}>Fulfill</RNText>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={s.rejectBtn} onPress={() => claimService.deny(c.id)}>
-                      <RNText style={s.actionText}>Deny</RNText>
-                    </TouchableOpacity>
-                  </Card>
-                ))}
+                {pendingClaims.map(c => {
+                  const onFulfill = async () => {
+                    try {
+                      await claimService.approve(c.id);
+                      if (c.minutes && c.kidId) {
+                        await userService.addMinutes(c.kidId, c.minutes);
+                      }
+                      if (Platform.OS === 'android') {
+                        ToastAndroid.show(
+                          c.minutes
+                            ? `✓ +${c.minutes} min added to ${buddyLabel(c.kidId, buddies)}'s wallet`
+                            : `✓ Fulfilled "${c.rewardTitle}"`,
+                          ToastAndroid.SHORT,
+                        );
+                      }
+                    } catch (e: any) {
+                      if (Platform.OS === 'android') {
+                        ToastAndroid.show(`Failed: ${e?.message || e}`, ToastAndroid.LONG);
+                      }
+                    }
+                  };
+                  const onDeny = async () => {
+                    try {
+                      await claimService.deny(c.id);
+                      if (Platform.OS === 'android') {
+                        ToastAndroid.show(`✗ Denied "${c.rewardTitle}"`, ToastAndroid.SHORT);
+                      }
+                    } catch (e: any) {
+                      if (Platform.OS === 'android') {
+                        ToastAndroid.show(`Failed: ${e?.message || e}`, ToastAndroid.LONG);
+                      }
+                    }
+                  };
+                  return (
+                    <Card key={c.id} row radius={theme.radius.lg} style={{ gap: 8, borderColor: theme.colors.accent + '60' }}>
+                      <View style={{ flex: 1 }}>
+                        <Text variant="h3" style={{ fontSize: 14 }}>🎁 {c.rewardTitle}</Text>
+                        <Text variant="meta" style={{ marginTop: 2 }}>
+                          {c.minutes ? `${c.minutes} min · ` : ''}{c.cost} pts · claimed {fmtTime(c.claimedAt)}
+                        </Text>
+                      </View>
+                      <TouchableOpacity style={s.acceptBtn} onPress={onFulfill}>
+                        <RNText style={s.actionText}>Fulfill</RNText>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={s.rejectBtn} onPress={onDeny}>
+                        <RNText style={s.actionText}>Deny</RNText>
+                      </TouchableOpacity>
+                    </Card>
+                  );
+                })}
               </>
             )}
           </>

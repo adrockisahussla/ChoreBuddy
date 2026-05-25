@@ -56,6 +56,12 @@ service cloud.firestore {
       allow update, delete: if inMyFamily(resource.data.familyId);
     }
 
+    match /rewardPool/{id} {
+      allow read: if inMyFamily(resource.data.familyId);
+      allow create: if inMyFamily(request.resource.data.familyId);
+      allow update, delete: if inMyFamily(resource.data.familyId);
+    }
+
     match /rewards/{id} {
       allow read: if inMyFamily(resource.data.familyId);
       allow create: if inMyFamily(request.resource.data.familyId);

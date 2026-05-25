@@ -1,6 +1,6 @@
 # EVENT_FLOWS — ChoreBuddy event & notification spec
 
-**Version:** v1.22 · **Last verified:** 2026-05-24
+**Version:** v1.24 · **Last verified:** 2026-05-24
 
 > If you change a toast string, persistence flag, or Firestore field touched by a notifier, update the matching entry below. This file is the canonical answer to "when X happens, what should the user see, and on which device?"
 
@@ -26,8 +26,12 @@
 **Persistence flags** (boolean fields on docs that gate "have we notified yet"):
 - `chore.notifiedAssigner` — true once `usePendingChoreNotifier` has fired for the assigner. Cleared on submit.
 - `chore.notifiedAssignee` — true once `useApprovedChoreNotifier` has fired for the assignee. Cleared on submit + on approve write.
+- `chore.notifiedAssignedTo` — true once `useAssignedChoreNotifier` has fired for newly-assigned-to-me chores.
+- `chore.collectedAt` — epoch ms when the kid tapped Collect to bank the points. Uncollected approvals don't count toward the wallet.
 - `reminder.notificationId` — Notifee trigger id; presence means "we scheduled this." Cleared on edit/delete.
 - `invite.acceptedAt` / `acceptedByUid` — set on accept; gates the `InviteBanner` visibility.
+- `rewardClaim.notifiedClaimant` — true once `useClaimResolvedNotifier` has fired on the kid's device for an approve/deny resolution.
+- `user.minutesRemaining` — kid's screen-time wallet. Atomic increment on claim fulfillment via `userService.addMinutes`.
 
 **Snapshot model.** Every screen subscribes to its data via `useChores` / `useReminders` / `useRewards` / `useRewardClaims` / `useInvites` / `useFamilyMembers`, all of which wrap Firestore `onSnapshot`. There is no explicit messaging layer — writes propagate live to every device with the relevant screen mounted. **Offline:** the Firestore SDK caches writes locally and replays them on reconnect; the receiver's notifier hooks re-evaluate on the next snapshot tick, so any unseen state changes fire one toast + one notification per affected doc on next foreground.
 
@@ -37,8 +41,9 @@
 
 ## Table of contents
 
-- [Chore flow](#chore-flow) (8)
-  - `CHORE_POOL_SAVED` · `CHORE_ASSIGNED` · `CHORE_SUBMITTED` · `CHORE_AWAITING_APPROVAL` · `CHORE_APPROVED` · `CHORE_REJECTED` · `CHORE_DELETED` · `CHORE_WEEKLY_RESET`
+- [Chore flow](#chore-flow) (10)
+  - `CHORE_POOL_SAVED` · `CHORE_ASSIGNED` · `CHORE_NEW_FOR_ASSIGNEE` · `CHORE_SUBMITTED` · `CHORE_AWAITING_APPROVAL` · `CHORE_APPROVED` · `CHORE_COLLECTED` · `CHORE_REJECTED` · `CHORE_DELETED` · `CHORE_WEEKLY_RESET`
+- [Reward Pool flow](#reward-pool-flow) (3) — `REWARD_POOL_ADDED` · `REWARD_POOL_EDITED` · `REWARD_POOL_DELETED`
 - [Reminder flow](#reminder-flow) (5)
   - `REMINDER_CREATED` · `REMINDER_UPDATED` · `REMINDER_DELETED` · `REMINDER_FIRED` · `REMINDER_SCHEDULE_FAILED`
 - [Reward & claim flow](#reward--claim-flow) (6)
@@ -75,6 +80,15 @@
 - **Offline** — Firestore caches; assignee sees the new chore + (eventually) due-time alarms once their device syncs.
 - **UI** — Chore appears in `BuddyChoresScreen` (both manager-side and buddy-side) under the **Todo** tab.
 
+### CHORE_NEW_FOR_ASSIGNEE
+- **Trigger** — Side-effect of `CHORE_ASSIGNED`. Fired by [`src/hooks/useAssignedChoreNotifier.ts`](../src/hooks/useAssignedChoreNotifier.ts) on the assignee's device when a chore lands with `assignedTo===myUid && status==='todo' && !notifiedAssignedTo`. 48 h freshness gate (`createdAt > now - 48h`) so legacy chores don't burst-toast on app install.
+- **Audience** — `ASSIGNEE`.
+- **Firestore** — `chores/{id}` update: `{ notifiedAssignedTo: true }` after dispatch (also written for stale chores to silence them).
+- **Toast** — `bottom-toast` via `toastQueue`: `📋 New chore: "<title>" from <assigner> · +<N> pts`.
+- **Notifee** — id `chore-assigned-<choreId>`, title `📋 New chore`, body `<assigner> assigned "<title>" — +<N> pts`.
+- **Persists** — `notifiedAssignedTo=true` is permanent (no clearing — "newly assigned" only happens once).
+- **Offline** — Standard cold-start replay; flag prevents re-toast.
+
 ### CHORE_SUBMITTED
 - **Trigger** — Assignee taps the empty circle on a `'todo'` or `'rejected'` chore. Sources: [`src/screens/buddy/BuddyChoresScreen.tsx`](../src/screens/buddy/BuddyChoresScreen.tsx) `submit`, and [`src/screens/manager/BuddyChoresScreen.tsx`](../src/screens/manager/BuddyChoresScreen.tsx) `onTapCircle` *viewingSelf* branch (manager-as-assignee).
 - **Audience** — `SELF` (local confirmation) + `ASSIGNER` (see `CHORE_AWAITING_APPROVAL`).
@@ -106,6 +120,16 @@
 - **Persists** — `notifiedAssignee=true` written after each toast/notif. Cleared by `CHORE_SUBMITTED` so re-approvals (post-rejection or weekly reset + resubmit) re-notify.
 - **Offline** — Assignee's app re-evaluates on next mount; multiple approved-while-offline chores all fire, queued by `toastQueue` so none overwrite.
 - **UI** — Row moves to **Done** tab on both devices. Points pill on `BuddyHomeScreen` + `BuddyRewardsScreen` increments live (derived from `chores.filter(approved).reduce(points)`). Manager Header badge decrements.
+
+### CHORE_COLLECTED
+- **Trigger** — Assignee taps the big **🪙 Collect +N pts** button in the Done tab on [`src/screens/buddy/BuddyChoresScreen.tsx`](../src/screens/buddy/BuddyChoresScreen.tsx) `collect`. Only approved chores without `collectedAt` show the button.
+- **Audience** — `SELF`.
+- **Firestore** — `chores/{id}` update: `{ collectedAt: Date.now() }`.
+- **Toast** — `bottom-toast` SHORT: `🪙 +<N> pts collected!`.
+- **Notifee** — none.
+- **Persists** — `collectedAt` is permanent. Uncollected approvals stay forever (no expiry).
+- **Wallet impact** — `available = sum(approved && collectedAt) - sum(approved claims) - sum(pending claims)`. The points pill on `BuddyHomeScreen` + `BuddyRewardsScreen` ticks up live via snapshot.
+- **UI** — Row leaves the "Collect your points!" sub-section and moves into "Collected" below it. Wallet across all screens reflects the new total.
 
 ### CHORE_REJECTED
 - **Trigger** — Assigner taps the ✕ button on a pending chore, types a note, taps **Reject**. Source: [`src/screens/manager/BuddyChoresScreen.tsx`](../src/screens/manager/BuddyChoresScreen.tsx) `submitReject`.
@@ -186,6 +210,20 @@
 
 ---
 
+## Reward Pool flow
+
+The Reward Pool is the per-kid screen-time catalog the manager curates. Each entry is a "X minutes of screen time for Y points" exchange. Kids redeem from their own pool only.
+
+### REWARD_POOL_ADDED / EDITED / DELETED
+- **Trigger** — Manager taps `+ New Reward` on [`src/screens/manager/RewardPoolScreen.tsx`](../src/screens/manager/RewardPoolScreen.tsx) (add), taps an existing row (edit), or taps 🗑 + confirms (delete).
+- **Audience** — `SELF` + `ASSIGNEE` (passively, via the next snapshot — no notification fires).
+- **Firestore** — `rewardPool/{auto}` add: `{ familyId, kidId, label, minutes, pointsCost, createdBy, createdAt }`. Updates patch the same doc; deletes remove it.
+- **Toast** — `bottom-toast` SHORT on manager device: `✓ Added "<label>" to <kid>'s reward pool` / `✓ Updated "<label>"` / `Removed "<label>"`.
+- **Notifee** — none.
+- **UI** — Kid's `BuddyRewardsScreen` "Get screen time" tab shows the new/updated catalog entry live.
+
+---
+
 ## Reward & claim flow
 
 ### REWARD_SUGGESTED
@@ -225,18 +263,25 @@
 - **Notifee** — none.
 
 ### CLAIM_FULFILLED
-- **Trigger** — Manager taps **Fulfill** on a pending claim. Source: `BuddyRewardsScreen` (manager) → `claimService.approve(claimId)`.
-- **Audience** — `SELF` (silent). Buddy gets *no notification*; the claim slides into their **Past** tab marked ✓ Fulfilled. **Known gap.**
-- **Firestore** — `rewardClaims/{id}` update: `{ status:'approved', resolvedAt }`.
-- **Toast** — none.
-- **Notifee** — none.
+- **Trigger** — Manager taps **Fulfill** on a pending claim. Source: [`src/screens/manager/BuddyRewardsScreen.tsx`](../src/screens/manager/BuddyRewardsScreen.tsx) onFulfill → `claimService.approve(claimId)` + `userService.addMinutes(kidUid, claim.minutes)`.
+- **Audience** — `SELF` (manager confirmation) + `ASSIGNEE` (kid) via `useClaimResolvedNotifier`.
+- **Firestore** — `rewardClaims/{id}` update: `{ status:'approved', resolvedAt }`. **AND** `users/{kidUid}` atomic merge: `{ minutesRemaining: FieldValue.increment(claim.minutes) }`. Kid-side write follows: `{ notifiedClaimant:true }`.
+- **Toast** —
+  - Manager device, `bottom-toast` SHORT: `✓ +<N> min added to <kid>'s wallet` (or `✓ Fulfilled "<title>"` for legacy claims without minutes).
+  - Kid device, `bottom-toast` (via `toastQueue`): `🎉 +<N> min added to your screen-time wallet!` (or `🎉 "<title>" was approved!` for legacy claims).
+- **Notifee** — Kid device only. Id `claim-<claimId>`, title `🎉 Reward unlocked`, body `+<N> min screen time added · "<title>"`.
+- **Persists** — `notifiedClaimant=true` prevents re-fire; offline catch-up works on next sign-in.
+- **UI** — Kid's wallet card on `BuddyHomeScreen` + `BuddyRewardsScreen` shows updated `⏱ minutes` count live.
 
 ### CLAIM_DENIED
 - **Trigger** — Manager taps **Deny** on a pending claim.
-- **Audience** — `SELF` (silent). Buddy gets *no notification*; claim shows ✕ Denied in their **Past** tab. **Known gap.**
-- **Firestore** — `rewardClaims/{id}` update: `{ status:'denied', resolvedAt }`.
-- **Toast** — none.
-- **Notifee** — none.
+- **Audience** — `SELF` + `ASSIGNEE` (kid) via `useClaimResolvedNotifier`.
+- **Firestore** — `rewardClaims/{id}` update: `{ status:'denied', resolvedAt }`. Kid-side write follows: `{ notifiedClaimant:true }`. **Points not refunded** — points were never deducted (only approved claims spend per the wallet math).
+- **Toast** —
+  - Manager device, `bottom-toast` SHORT: `✗ Denied "<title>"`.
+  - Kid device, `bottom-toast` (via `toastQueue`): `✗ Your "<title>" request was denied`.
+- **Notifee** — Kid device only. Id `claim-<claimId>`, title `✗ Request denied`, body `"<title>" was denied`.
+- **Persists** — `notifiedClaimant=true`.
 
 ---
 
@@ -336,8 +381,8 @@ These are paths where a user takes a meaningful action but the affected party ne
 | `CHORE_REJECTED` | Buddy gets no toast/notification. Discovers it next time they open Todo tab; red `❌ <note>` line is the only signal. |
 | `REWARD_APPROVED` | Buddy gets no notification when their suggestion is accepted. Reward just appears in **GET!** tab. |
 | `REWARD_REJECTED` | Doc is deleted silently. Buddy never learns their suggestion was rejected. |
-| `CLAIM_FULFILLED` | Buddy gets no notification of fulfillment — claim shows ✓ Fulfilled in Past tab on next view. |
-| `CLAIM_DENIED` | Same — no notification, just appears as ✕ Denied. |
+| ~~`CLAIM_FULFILLED`~~ | **Resolved in v1.24** — kid now gets a queued bottom toast + Notifee `🎉 Reward unlocked` notification; minutes wallet increments live. |
+| ~~`CLAIM_DENIED`~~ | **Resolved in v1.24** — kid now gets a toast + Notifee `✗ Request denied` notification. |
 | `INVITE_DECLINED` / `INVITE_BLOCKED` | Manager not notified; status just changes in their pending-invites list. |
 | `INVITE_REVOKED` | Invitee not notified; banner just stops showing. Also no toast on manager's own action. |
 | `REMINDER_FIRED` cross-device | If the buddy's device hasn't opened the app since the reminder was created, `useReminderScheduling` has never run on their phone and the alarm won't ring. Requires per-device snapshot sync to work, which means buddy must open the app at least once between create and fire-time. |

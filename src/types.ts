@@ -36,6 +36,27 @@ export interface Chore {
    *  newly assigned to them. Set on first surface-on-device; not
    *  cleared, since "newly assigned" only happens once per chore. */
   notifiedAssignedTo?: boolean;
+  /** When the assignee tapped "Collect" to bank their points. Only
+   *  collected approvals count toward the spendable points balance. */
+  collectedAt?: number;
+}
+
+/** Per-kid screen-time grant template. Manager curates this catalog;
+ *  kid redeems entries by trading points for minutes. */
+export interface RewardPoolItem {
+  id: string;
+  familyId: string;
+  /** Kid (buddy or co-manager) this pool entry is offered to. */
+  kidId: string;
+  /** Display label (e.g. "30 min screen time"). Auto-defaulted from
+   *  minutes if blank. */
+  label: string;
+  /** Screen-time grant size in minutes. */
+  minutes: number;
+  /** Cost to the kid, in collected points. */
+  pointsCost: number;
+  createdBy: string;
+  createdAt: number;
 }
 
 export interface ChorePoolItem {
@@ -98,6 +119,11 @@ export interface RewardClaim {
   status: ClaimStatus;
   claimedAt: number;
   resolvedAt?: number;
+  /** For screen-time pool redemptions: minutes the kid gets when
+   *  the claim is fulfilled. Absent on legacy claims. */
+  minutes?: number;
+  /** True once the kid has been notified of approve/deny. */
+  notifiedClaimant?: boolean;
 }
 
 export interface Invite {
@@ -129,4 +155,8 @@ export interface User {
   createdAt: number;
   /** App-level UI text scale multiplier (1.0 = design size). */
   textScale?: number;
+  /** Screen-time wallet for this user (kid). Incremented on claim
+   *  fulfillment, decremented by the firewall agent (Phase 2) or
+   *  by manual manager actions (Phase 1). */
+  minutesRemaining?: number;
 }

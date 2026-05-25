@@ -59,8 +59,26 @@ export default function BuddyChoresScreen({ navigation }: any) {
   const todo = inWeek.filter(c => c.status === 'todo' || c.status === 'rejected');
   const pending = inWeek.filter(c => c.status === 'pending');
   const approved = inWeek.filter(c => c.status === 'approved' && c.weekOf === selectedWeek);
+  const uncollected = approved.filter(c => !c.collectedAt);
+  const collected = approved.filter(c => !!c.collectedAt);
 
-  const totalPts = approved.reduce((s, c) => s + chorePoints(c), 0);
+  // Wallet pill only counts collected — uncollected is "ready to collect"
+  // and is called out separately so the kid sees the difference.
+  const totalPts = collected.reduce((s, c) => s + chorePoints(c), 0);
+  const readyPts = uncollected.reduce((s, c) => s + chorePoints(c), 0);
+
+  const collect = async (c: Chore) => {
+    try {
+      await choreService.update(c.id, { collectedAt: Date.now() });
+      if (Platform.OS === 'android') {
+        ToastAndroid.show(`🪙 +${chorePoints(c)} pts collected!`, ToastAndroid.SHORT);
+      }
+    } catch (e: any) {
+      if (Platform.OS === 'android') {
+        ToastAndroid.show(`Failed: ${e?.message || e}`, ToastAndroid.LONG);
+      }
+    }
+  };
 
   const submit = async (c: Chore) => {
     try {
@@ -98,6 +116,11 @@ export default function BuddyChoresScreen({ navigation }: any) {
               <Text variant="h3" style={{ fontSize: 16 }}>
                 {approved.length} done · {todo.length} to do
               </Text>
+              {readyPts > 0 && (
+                <Text style={s.readyHint}>
+                  🪙 {readyPts} pts ready to collect →
+                </Text>
+              )}
             </View>
             <Pill label={`+${totalPts} pts`} active size="md" />
           </View>
@@ -108,7 +131,7 @@ export default function BuddyChoresScreen({ navigation }: any) {
             const tabs = [
               { key: 'todo' as const, label: 'To do', count: todo.length },
               { key: 'waiting' as const, label: 'Pending', count: pending.length },
-              { key: 'done' as const, label: 'Done', count: undefined as number | undefined },
+              { key: 'done' as const, label: 'Done', count: uncollected.length > 0 ? uncollected.length : undefined },
             ];
             return tabs.map((t, i) => {
               const active = tab === t.key;
@@ -195,22 +218,58 @@ export default function BuddyChoresScreen({ navigation }: any) {
           </>
         )}
 
-        {/* Approved section — filled checkbox + struck-through title */}
+        {/* Done tab — uncollected at top with big Collect buttons, collected below */}
         {tab === 'done' && approved.length > 0 && (
           <>
-            {approved.map(c => (
-              <View key={c.id} style={s.row}>
-                <View style={[s.checkbox, s.checkboxDone]}>
-                  <RNText style={s.checkboxDoneMark}>✓</RNText>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text variant="h3" style={{ fontSize: 14, textDecorationLine: 'line-through' }}>{c.title}</Text>
-                  <Text variant="tiny" style={{ marginTop: 2, fontSize: 11 }}>
-                    +{chorePoints(c)} pts earned · from {assignerName(c.createdBy)}
-                  </Text>
-                </View>
-              </View>
-            ))}
+            {uncollected.length > 0 && (
+              <>
+                <Text variant="sectionLabel" style={{ marginTop: 0, color: theme.colors.accent }}>
+                  🪙 Collect your points!
+                </Text>
+                {uncollected.map(c => (
+                  <TouchableOpacity
+                    key={c.id}
+                    style={s.collectRow}
+                    onPress={() => collect(c)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={s.coinIcon}>
+                      <RNText style={s.coinText}>🪙</RNText>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text variant="h3" style={{ fontSize: 14 }}>{c.title}</Text>
+                      <Text variant="tiny" style={{ marginTop: 2, fontSize: 11 }}>
+                        Approved by {assignerName(c.createdBy)} — tap to bank +{chorePoints(c)} pts
+                      </Text>
+                    </View>
+                    <View style={s.collectBtn}>
+                      <RNText style={s.collectBtnText}>+{chorePoints(c)}</RNText>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </>
+            )}
+
+            {collected.length > 0 && (
+              <>
+                {uncollected.length > 0 && (
+                  <Text variant="sectionLabel" style={{ marginTop: 16 }}>Collected</Text>
+                )}
+                {collected.map(c => (
+                  <View key={c.id} style={s.row}>
+                    <View style={[s.checkbox, s.checkboxDone]}>
+                      <RNText style={s.checkboxDoneMark}>✓</RNText>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text variant="h3" style={{ fontSize: 14, textDecorationLine: 'line-through' }}>{c.title}</Text>
+                      <Text variant="tiny" style={{ marginTop: 2, fontSize: 11 }}>
+                        +{chorePoints(c)} pts banked · from {assignerName(c.createdBy)}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
           </>
         )}
 
@@ -270,6 +329,26 @@ const s = StyleSheet.create({
   tabBadgeText: { color: '#fff', fontWeight: '900', fontSize: 11 },
 
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: theme.colors.card, borderWidth: 1, borderColor: theme.colors.cardBorder, borderRadius: theme.radius.lg, padding: 12, marginBottom: 6 },
+  readyHint: { color: theme.colors.accent, fontSize: 11, fontWeight: '900', marginTop: 4 },
+  collectRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: theme.colors.accent + '15',
+    borderWidth: 2, borderColor: theme.colors.accent,
+    borderRadius: theme.radius.lg,
+    padding: 12, marginBottom: 6,
+  },
+  coinIcon: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: theme.colors.accent,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  coinText: { fontSize: 18 },
+  collectBtn: {
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
+    backgroundColor: theme.colors.accent,
+    minWidth: 60, alignItems: 'center',
+  },
+  collectBtnText: { color: '#fff', fontWeight: '900', fontSize: 16 },
   rowOverdue: { borderColor: theme.colors.danger, borderWidth: 2, backgroundColor: theme.colors.danger + '10' },
   rejectNote: { color: theme.colors.danger, fontSize: 11, fontWeight: '700', marginTop: 4 },
 

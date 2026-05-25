@@ -89,12 +89,17 @@ export default function BuddyHomeScreen({ navigation }: any) {
     return (r.dueDate || 0) > Date.now();
   }).length;
 
-  // Available points = approved chore points − spent − pending claims
+  // Available points = COLLECTED chore points − spent − pending claims.
+  // Uncollected approvals don't count (kid has to tap Collect first).
   const approved = my.filter(c => c.status === 'approved');
-  const totalEarned = approved.reduce((s, c) => s + chorePoints(c), 0);
+  const collected = approved.filter(c => !!c.collectedAt);
+  const uncollected = approved.filter(c => !c.collectedAt);
+  const totalEarned = collected.reduce((s, c) => s + chorePoints(c), 0);
+  const readyToCollect = uncollected.reduce((s, c) => s + chorePoints(c), 0);
   const spent = myClaims.filter(c => c.status === 'approved').reduce((s, c) => s + (c.cost || 0), 0);
   const pendingSpent = myClaims.filter(c => c.status === 'pending').reduce((s, c) => s + (c.cost || 0), 0);
   const available = totalEarned - spent - pendingSpent;
+  const minutesRemaining = userDoc?.minutesRemaining || 0;
 
   // Recent activity for this buddy, sorted newest first
   const events: { ts: number; icon: string; text: string }[] = [];
@@ -151,8 +156,22 @@ export default function BuddyHomeScreen({ navigation }: any) {
         <StatCard
           num={available}
           variant="brand"
-          title="Available Points"
-          meta={available > 0 ? 'Ready to spend!' : 'Do some chores to earn more'}
+          title="🪙 Points to spend"
+          meta={
+            readyToCollect > 0
+              ? `${readyToCollect} pts ready to collect →`
+              : available > 0
+                ? 'Ready to spend!'
+                : 'Do some chores to earn more'
+          }
+          onPress={() => navigation.navigate(readyToCollect > 0 ? 'MyChores' : 'MyRewards')}
+        />
+
+        <StatCard
+          num={minutesRemaining}
+          numColor={theme.colors.purple}
+          title="⏱ Screen time minutes"
+          meta={minutesRemaining > 0 ? 'Available right now' : 'Redeem points to get more'}
           onPress={() => navigation.navigate('MyRewards')}
         />
 

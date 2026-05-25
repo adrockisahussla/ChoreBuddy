@@ -6,6 +6,7 @@ import { CommonActions } from '@react-navigation/native';
 import HomeStack from './HomeStack';
 import BuddiesStack from './BuddiesStack';
 import ChorePoolScreen from '../screens/manager/ChorePoolScreen';
+import RewardPoolScreen from '../screens/manager/RewardPoolScreen';
 import RemindersScreen from '../screens/manager/RemindersScreen';
 import SettingsScreen from '../screens/manager/SettingsScreen';
 import FirewallScreen from '../screens/manager/FirewallScreen';
@@ -24,6 +25,7 @@ const ITEMS: DrawerItem[] = [
   { route: 'Home',        label: 'Home',       icon: '🏠' },
   { route: 'Buddies',     label: 'Family',     icon: '👥' },
   { route: 'ChorePool',   label: 'Chore Pool', icon: '⭐' },
+  { route: 'RewardPool',  label: 'Reward Pool', icon: '🎁', managerOnly: true },
   { route: 'Reminders',   label: 'Reminders',  icon: '🔔' },
   { route: 'Firewall',    label: 'Firewall',   icon: '🚫', managerOnly: true },
   { route: 'Settings',    label: 'Settings',   icon: '⚙️' },
@@ -105,6 +107,9 @@ export default function DrawerNavigator() {
       <Drawer.Screen name="Home" component={HomeStack} options={{ title: 'Home' }} />
       <Drawer.Screen name="Buddies" component={BuddiesStack} options={{ title: 'Family' }} />
       <Drawer.Screen name="ChorePool" component={ChorePoolScreen} options={{ title: 'Chore Pool' }} />
+      {isManager && (
+        <Drawer.Screen name="RewardPool" component={RewardPoolScreen} options={{ title: 'Reward Pool' }} />
+      )}
       <Drawer.Screen name="Reminders" component={RemindersScreen} options={{ title: 'Reminders' }} />
       {isManager && (
         <Drawer.Screen name="Firewall" component={FirewallScreen} options={{ title: 'Firewall' }} />

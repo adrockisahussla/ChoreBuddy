@@ -14,6 +14,7 @@ export const rewardService = {
 };
 
 export const claimService = {
+  /** Legacy claim path — used by old per-kid Reward docs. */
   request: (reward: Pick<Reward, 'id' | 'kidId' | 'title' | 'cost'>) =>
     claimsCol().add({
       rewardId: reward.id,
@@ -22,6 +23,27 @@ export const claimService = {
       cost: reward.cost,
       status: 'pending',
       claimedAt: Date.now(),
+    } as Omit<RewardClaim, 'id'>),
+  /** New pool-based redemption — carries the `minutes` value of the
+   *  screen-time grant. Approved claims credit the kid's
+   *  users.minutesRemaining wallet by this amount. */
+  requestFromPool: (opts: {
+    poolItemId: string;
+    kidId: string;
+    label: string;
+    minutes: number;
+    pointsCost: number;
+    familyId?: string;
+  }) =>
+    claimsCol().add({
+      rewardId: opts.poolItemId,
+      kidId: opts.kidId,
+      rewardTitle: opts.label,
+      cost: opts.pointsCost,
+      minutes: opts.minutes,
+      status: 'pending',
+      claimedAt: Date.now(),
+      ...(opts.familyId ? { familyId: opts.familyId } : {}),
     } as Omit<RewardClaim, 'id'>),
   approve: (claimId: string) =>
     claimsCol().doc(claimId).update({ status: 'approved', resolvedAt: Date.now() }),

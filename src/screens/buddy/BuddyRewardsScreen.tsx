@@ -3,44 +3,55 @@ import { View, ScrollView, TouchableOpacity, StyleSheet, Platform, ToastAndroid,
 import { theme } from '../../theme';
 import { useChores } from '../../hooks/useChores';
 import { useRewards, useRewardClaims } from '../../hooks/useRewards';
+import { useRewardPool } from '../../hooks/useRewardPool';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { claimService } from '../../services/rewardService';
 import { chorePoints } from '../../utils/buddy';
-import { Reward } from '../../types';
+import { RewardPoolItem } from '../../types';
 import {
-  Header, Screen, Card, Text, StatCard, Button, SuggestRewardForm, useConfirm, SCREEN_BOTTOM_PAD,
+  Header, Screen, Card, Text, Button, useConfirm, SCREEN_BOTTOM_PAD,
 } from '../../components';
 
-type RewardsTab = 'pending' | 'collectable' | 'past';
+type RewardsTab = 'pool' | 'pending' | 'past';
 
 /**
- * BuddyRewardsScreen — the buddy view of the reward catalog. Wallet stays
- * pinned at the top; the catalog + history are grouped under two tabs
- * matching the manager-side `BuddyRewardsScreen`:
- *   • Pending — rewards available to claim, plus claims still awaiting
- *               the manager's decision.
- *   • Past    — approved (got it!) and denied claims, newest first.
+ * BuddyRewardsScreen — kid view. Wallet shows two numbers: 🪙 points (only
+ * COLLECTED chores count toward this) and ⏱ minutes of screen time
+ * remaining (granted by manager-fulfilled redemptions). Pool tab shows
+ * the reward catalog the manager has set up for this kid; Redeem trades
+ * points for minutes once the manager approves the request.
  */
 export default function BuddyRewardsScreen({ navigation }: any) {
-  const { fbUser } = useCurrentUser();
+  const { fbUser, userDoc } = useCurrentUser();
   const myUid = fbUser?.uid;
-  const [tab, setTab] = useState<RewardsTab>('collectable');
-  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [tab, setTab] = useState<RewardsTab>('pool');
 
   const { chores } = useChores();
   const { rewardItems } = useRewards();
   const { rewardClaims } = useRewardClaims();
+  const { rewardPool } = useRewardPool();
   const confirm = useConfirm();
 
-  const my = chores.filter(c => c.assignedTo === myUid && c.status === 'approved');
-  const totalEarned = my.reduce((s, c) => s + chorePoints(c), 0);
+  // Points balance: only chores I've collected count. Uncollected approvals
+  // sit on the chores screen waiting for me to tap Collect.
+  const myApproved = chores.filter(c => c.assignedTo === myUid && c.status === 'approved');
+  const collected = myApproved.filter(c => !!c.collectedAt);
+  const uncollected = myApproved.filter(c => !c.collectedAt);
+  const totalEarned = collected.reduce((s, c) => s + chorePoints(c), 0);
+  const readyToCollect = uncollected.reduce((s, c) => s + chorePoints(c), 0);
+
   const myClaims = rewardClaims.filter(c => c.kidId === myUid);
   const spent = myClaims.filter(c => c.status === 'approved').reduce((s, c) => s + (c.cost || 0), 0);
   const pendingSpent = myClaims.filter(c => c.status === 'pending').reduce((s, c) => s + (c.cost || 0), 0);
   const available = totalEarned - spent - pendingSpent;
+  const minutesRemaining = userDoc?.minutesRemaining || 0;
 
-  const collectable = rewardItems.filter(r => (r as any).kidId === myUid && r.status === 'active');
-  const myRequested = rewardItems.filter(r => (r as any).kidId === myUid && r.status === 'requested');
+  // My pool entries (manager curates per-kid)
+  const myPool = rewardPool.filter(p => p.kidId === myUid);
+
+  // Legacy active rewards (pre-pool model) — surface alongside pool
+  const legacyActive = rewardItems.filter(r => (r as any).kidId === myUid && r.status === 'active');
+
   const pendingClaims = myClaims
     .filter(c => c.status === 'pending')
     .slice()
@@ -55,7 +66,39 @@ export default function BuddyRewardsScreen({ navigation }: any) {
     return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  const onClaim = async (r: Reward) => {
+  const onRedeemPool = async (p: RewardPoolItem) => {
+    if (available < p.pointsCost) {
+      if (Platform.OS === 'android') {
+        ToastAndroid.show(`Need ${p.pointsCost - available} more pts`, ToastAndroid.SHORT);
+      }
+      return;
+    }
+    const ok = await confirm({
+      title: 'Redeem screen time?',
+      message: `"${p.label}" — ${p.minutes} min for ${p.pointsCost} pts.\n\nYou'll have ${available - p.pointsCost} pts left if approved.`,
+      confirmLabel: 'Redeem',
+    });
+    if (!ok) return;
+    try {
+      await claimService.requestFromPool({
+        poolItemId: p.id,
+        kidId: myUid!,
+        label: p.label,
+        minutes: p.minutes,
+        pointsCost: p.pointsCost,
+        familyId: p.familyId,
+      });
+      if (Platform.OS === 'android') {
+        ToastAndroid.show(`✓ Asked manager for ${p.minutes} min of screen time`, ToastAndroid.SHORT);
+      }
+    } catch (e: any) {
+      if (Platform.OS === 'android') {
+        ToastAndroid.show(`Failed: ${e?.message || e}`, ToastAndroid.LONG);
+      }
+    }
+  };
+
+  const onClaimLegacy = async (r: typeof legacyActive[number]) => {
     if (available < r.cost) {
       if (Platform.OS === 'android') {
         ToastAndroid.show(`Need ${r.cost - available} more pts`, ToastAndroid.SHORT);
@@ -64,7 +107,7 @@ export default function BuddyRewardsScreen({ navigation }: any) {
     }
     const ok = await confirm({
       title: 'Claim this reward?',
-      message: `"${r.title}" — costs ${r.cost} pts. You'll have ${available - r.cost} pts left.`,
+      message: `"${r.title}" — costs ${r.cost} pts.`,
       confirmLabel: 'Claim',
     });
     if (!ok) return;
@@ -85,26 +128,41 @@ export default function BuddyRewardsScreen({ navigation }: any) {
       <Header title="Rewards" onMenuPress={() => navigation.openDrawer?.()} />
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
         <Text variant="sectionLabel" style={{ marginTop: 0 }}>Wallet</Text>
-        <StatCard
-          num={available}
-          variant="brand"
-          title="Available Points"
-          meta={`Earned ${totalEarned} · Spent ${spent}${pendingSpent > 0 ? ` · ${pendingSpent} pending` : ''}`}
-        />
-
-        <Button
-          label="+ Suggest a Reward"
-          variant="primary"
-          onPress={() => setSuggestOpen(true)}
-          style={{ marginTop: 10 }}
-        />
-        <SuggestRewardForm visible={suggestOpen} onClose={() => setSuggestOpen(false)} />
+        <Card padding={16} radius={theme.radius.lg} style={{ marginBottom: 12 }}>
+          <View style={s.walletRow}>
+            <View style={s.walletHalf}>
+              <RNText style={s.walletEmoji}>🪙</RNText>
+              <RNText style={s.walletNum}>{available}</RNText>
+              <RNText style={s.walletLabel}>points</RNText>
+              {pendingSpent > 0 && (
+                <RNText style={s.walletSub}>{pendingSpent} pts pending</RNText>
+              )}
+            </View>
+            <View style={s.walletDivider} />
+            <View style={s.walletHalf}>
+              <RNText style={s.walletEmoji}>⏱</RNText>
+              <RNText style={s.walletNum}>{minutesRemaining}</RNText>
+              <RNText style={s.walletLabel}>minutes</RNText>
+              <RNText style={s.walletSub}>screen time left</RNText>
+            </View>
+          </View>
+          {readyToCollect > 0 && (
+            <TouchableOpacity
+              style={s.collectNudge}
+              onPress={() => navigation.navigate('MyChores', { screen: 'MyChoresRoot' } as any)}
+            >
+              <RNText style={s.collectNudgeText}>
+                🪙 {readyToCollect} pts ready to collect — tap to go to Chores
+              </RNText>
+            </TouchableOpacity>
+          )}
+        </Card>
 
         <View style={s.tabRow}>
           {(() => {
             const tabs = [
-              { key: 'pending' as const, label: 'Pending', count: myRequested.length + pendingClaims.length },
-              { key: 'collectable' as const, label: 'GET!', count: collectable.length },
+              { key: 'pool' as const, label: 'Get screen time', count: myPool.length + legacyActive.length },
+              { key: 'pending' as const, label: 'Pending', count: pendingClaims.length },
               { key: 'past' as const, label: 'Past', count: undefined as number | undefined },
             ];
             return tabs.map((t, i) => {
@@ -136,95 +194,107 @@ export default function BuddyRewardsScreen({ navigation }: any) {
           })()}
         </View>
 
-        {tab === 'pending' && (
+        {tab === 'pool' && (
           <>
-            {myRequested.length === 0 && pendingClaims.length === 0 && (
+            {myPool.length === 0 && legacyActive.length === 0 && (
               <Text variant="empty" style={{ padding: 40 }}>
-                Nothing waiting on your manager.
+                Your manager hasn't set up any screen-time rewards yet.
               </Text>
             )}
-
-            {myRequested.length > 0 && (
+            {myPool.map(p => {
+              const canAfford = available >= p.pointsCost;
+              return (
+                <TouchableOpacity
+                  key={p.id}
+                  style={[s.poolCard, !canAfford && s.poolCardDim]}
+                  onPress={() => onRedeemPool(p)}
+                  activeOpacity={0.7}
+                >
+                  <View style={s.poolIcon}><RNText style={s.poolIconText}>⏱</RNText></View>
+                  <View style={{ flex: 1 }}>
+                    <Text variant="h3" style={{ fontSize: 15 }}>{p.label}</Text>
+                    <Text variant="tiny" style={{ marginTop: 2 }}>
+                      <Text style={{ color: theme.colors.accent, fontWeight: '900' }}>{p.minutes} min</Text>
+                      {' · '}
+                      <Text style={{ color: theme.colors.success, fontWeight: '900' }}>{p.pointsCost} pts</Text>
+                    </Text>
+                  </View>
+                  {canAfford ? (
+                    <View style={s.redeemBtn}>
+                      <RNText style={s.redeemBtnText}>Redeem</RNText>
+                    </View>
+                  ) : (
+                    <Text variant="tiny" style={{ color: theme.colors.danger, fontWeight: '900' }}>
+                      Need {p.pointsCost - available}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+            {legacyActive.length > 0 && (
               <>
-                <Text variant="sectionLabel" style={{ marginTop: 0 }}>Suggestions sent</Text>
-                {myRequested.map(r => (
-                  <Card key={r.id} row padding={12} radius={theme.radius.lg} style={{ gap: 10, marginBottom: 6 }}>
-                    <View style={[s.claimIcon, { backgroundColor: theme.colors.warningSoft, borderColor: theme.colors.warning }]}>
-                      <RNText style={[s.claimIconText, { color: theme.colors.warning }]}>💡</RNText>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text variant="h3" style={{ fontSize: 14 }}>{r.title}</Text>
-                      <Text variant="tiny" style={{ marginTop: 2 }}>
-                        Suggested {r.suggestedCost} pts · waiting for manager
-                      </Text>
-                    </View>
-                  </Card>
-                ))}
-              </>
-            )}
-
-            {pendingClaims.length > 0 && (
-              <>
-                <Text variant="sectionLabel" style={{ marginTop: 14 }}>Claims waiting</Text>
-                {pendingClaims.map(c => (
-                  <Card key={c.id} row padding={12} radius={theme.radius.lg} style={{ gap: 10, marginBottom: 6 }}>
-                    <View style={[s.claimIcon, { backgroundColor: theme.colors.warningSoft, borderColor: theme.colors.warning }]}>
-                      <RNText style={[s.claimIconText, { color: theme.colors.warning }]}>⏳</RNText>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text variant="h3" style={{ fontSize: 14 }}>{c.rewardTitle}</Text>
-                      <Text variant="tiny" style={{ marginTop: 2 }}>
-                        {c.cost} pts · claimed {fmtTime(c.claimedAt)}
-                      </Text>
-                    </View>
-                  </Card>
-                ))}
+                <Text variant="sectionLabel" style={{ marginTop: 12 }}>Other rewards</Text>
+                {legacyActive.map(r => {
+                  const canAfford = available >= r.cost;
+                  return (
+                    <TouchableOpacity
+                      key={r.id}
+                      style={[s.poolCard, !canAfford && s.poolCardDim]}
+                      onPress={() => onClaimLegacy(r)}
+                      activeOpacity={0.7}
+                    >
+                      <RNText style={{ fontSize: 22 }}>🎁</RNText>
+                      <View style={{ flex: 1 }}>
+                        <Text variant="h3" style={{ fontSize: 15 }}>{r.title}</Text>
+                        <Text variant="tiny" style={{ marginTop: 2 }}>
+                          <Text style={{ color: theme.colors.success, fontWeight: '900' }}>{r.cost} pts</Text>
+                        </Text>
+                      </View>
+                      {canAfford ? (
+                        <View style={s.redeemBtn}>
+                          <RNText style={s.redeemBtnText}>Claim</RNText>
+                        </View>
+                      ) : (
+                        <Text variant="tiny" style={{ color: theme.colors.danger, fontWeight: '900' }}>
+                          Need {r.cost - available}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
               </>
             )}
           </>
         )}
 
-        {tab === 'collectable' && (
+        {tab === 'pending' && (
           <>
-            {collectable.length === 0 ? (
-              <Text variant="empty" style={{ padding: 40 }}>
-                Nothing to collect yet. Suggest one, or wait for your manager to add some!
-              </Text>
-            ) : collectable.map(r => {
-              const canAfford = available >= r.cost;
-              return (
-                <Card
-                  key={r.id}
-                  row
-                  padding={14}
-                  radius={theme.radius.lg}
-                  onPress={() => onClaim(r)}
-                  style={{ gap: 12, marginBottom: 6, opacity: canAfford ? 1 : 0.55 }}
-                >
-                  <RNText style={s.rewardIcon}>🎁</RNText>
-                  <View style={{ flex: 1 }}>
-                    <Text variant="h3" style={{ fontSize: 15 }}>{r.title}</Text>
-                    {!!r.description && (
-                      <Text variant="tiny" style={{ marginTop: 2, opacity: 0.8 }} numberOfLines={2}>
-                        {r.description}
-                      </Text>
-                    )}
-                  </View>
-                  <Text style={s.costText}>{r.cost} pts</Text>
-                </Card>
-              );
-            })}
+            {pendingClaims.length === 0 ? (
+              <Text variant="empty" style={{ padding: 40 }}>Nothing waiting on your manager.</Text>
+            ) : pendingClaims.map(c => (
+              <Card key={c.id} row padding={12} radius={theme.radius.lg} style={{ gap: 10, marginBottom: 6 }}>
+                <View style={[s.claimIcon, { backgroundColor: theme.colors.warningSoft, borderColor: theme.colors.warning }]}>
+                  <RNText style={[s.claimIconText, { color: theme.colors.warning }]}>⏳</RNText>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text variant="h3" style={{ fontSize: 14 }}>{c.rewardTitle}</Text>
+                  <Text variant="tiny" style={{ marginTop: 2 }}>
+                    {c.minutes ? `${c.minutes} min · ` : ''}{c.cost} pts · claimed {fmtTime(c.claimedAt)}
+                  </Text>
+                </View>
+              </Card>
+            ))}
           </>
         )}
 
         {tab === 'past' && (
           <>
             {resolvedClaims.length === 0 ? (
-              <Text variant="empty" style={{ padding: 40 }}>No past rewards yet — claim something!</Text>
+              <Text variant="empty" style={{ padding: 40 }}>No past redemptions yet.</Text>
             ) : resolvedClaims.map(c => {
               const palette = c.status === 'approved'
                 ? { bg: theme.colors.successSoft, fg: theme.colors.success, icon: '🎉', label: 'Got it!' }
-                : { bg: theme.colors.dangerSoft,  fg: theme.colors.danger,  icon: '✕',  label: 'Denied' };
+                : { bg: theme.colors.dangerSoft, fg: theme.colors.danger, icon: '✕', label: 'Denied' };
               return (
                 <Card key={c.id} row padding={12} radius={theme.radius.lg} style={{ gap: 10, marginBottom: 6 }}>
                   <View style={[s.claimIcon, { backgroundColor: palette.bg, borderColor: palette.fg }]}>
@@ -233,7 +303,7 @@ export default function BuddyRewardsScreen({ navigation }: any) {
                   <View style={{ flex: 1 }}>
                     <Text variant="h3" style={{ fontSize: 14 }}>{c.rewardTitle}</Text>
                     <Text variant="tiny" style={{ marginTop: 2 }}>
-                      {c.cost} pts · {palette.label} · {fmtTime(c.resolvedAt)}
+                      {c.minutes ? `${c.minutes} min · ` : ''}{c.cost} pts · {palette.label} · {fmtTime(c.resolvedAt)}
                     </Text>
                   </View>
                 </Card>
@@ -247,15 +317,19 @@ export default function BuddyRewardsScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-  rewardIcon: { fontSize: 22, width: 32, textAlign: 'center' },
-  costText: { color: theme.colors.accent, fontWeight: '900', fontSize: 15 },
-
-  claimIcon: {
-    width: 32, height: 32, borderRadius: 16,
-    borderWidth: 1.5,
-    justifyContent: 'center', alignItems: 'center',
+  walletRow: { flexDirection: 'row', alignItems: 'stretch' },
+  walletHalf: { flex: 1, alignItems: 'center', paddingVertical: 4 },
+  walletDivider: { width: 1, backgroundColor: theme.colors.cardBorder, marginHorizontal: 12 },
+  walletEmoji: { fontSize: 22 },
+  walletNum: { fontSize: 32, fontWeight: '900', color: theme.colors.accent, marginTop: 4 },
+  walletLabel: { fontSize: 12, fontWeight: '900', color: theme.colors.muted, textTransform: 'uppercase', letterSpacing: 1 },
+  walletSub: { fontSize: 11, color: theme.colors.muted, marginTop: 2 },
+  collectNudge: {
+    marginTop: 12, padding: 10, borderRadius: 10,
+    backgroundColor: theme.colors.accent + '22',
+    borderWidth: 1, borderColor: theme.colors.accent,
   },
-  claimIconText: { fontSize: 14, fontWeight: '900' },
+  collectNudgeText: { color: theme.colors.accent, fontWeight: '900', fontSize: 13, textAlign: 'center' },
 
   tabRow: { flexDirection: 'row', marginVertical: 12 },
   tabBtn: {
@@ -268,7 +342,7 @@ const s = StyleSheet.create({
   tabBtnLast: { borderTopRightRadius: 10, borderBottomRightRadius: 10 },
   tabBtnNoLeftBorder: { borderLeftWidth: 0 },
   tabBtnActive: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
-  tabLabel: { color: theme.colors.text, fontWeight: '700', fontSize: 13 },
+  tabLabel: { color: theme.colors.text, fontWeight: '700', fontSize: 12 },
   tabLabelActive: { color: '#fff' },
   tabBadge: {
     minWidth: 20, paddingHorizontal: 5, paddingVertical: 1,
@@ -277,4 +351,24 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   tabBadgeText: { color: '#fff', fontWeight: '900', fontSize: 11 },
+
+  poolCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: theme.colors.card,
+    borderWidth: 1, borderColor: theme.colors.cardBorder,
+    borderRadius: theme.radius.lg,
+    padding: 14, marginBottom: 6,
+  },
+  poolCardDim: { opacity: 0.55 },
+  poolIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: theme.colors.accent + '22', borderWidth: 1, borderColor: theme.colors.accent, alignItems: 'center', justifyContent: 'center' },
+  poolIconText: { fontSize: 18 },
+  redeemBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: theme.colors.accent },
+  redeemBtnText: { color: '#fff', fontWeight: '900', fontSize: 13 },
+
+  claimIcon: {
+    width: 32, height: 32, borderRadius: 16,
+    borderWidth: 1.5,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  claimIconText: { fontSize: 14, fontWeight: '900' },
 });
