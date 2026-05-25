@@ -34,6 +34,33 @@ async function ensureChannel(): Promise<void> {
  * when a chore in their family flips to status='pending'.
  */
 /**
+ * Display a foreground notification telling a buddy/co-manager that a
+ * new chore has been assigned to them. Stable id so re-fire doesn't
+ * stack duplicates.
+ */
+export async function notifyChoreAssigned(opts: {
+  choreId: string;
+  choreTitle: string;
+  points: number;
+  assignerName?: string;
+}): Promise<void> {
+  await ensureChannel();
+  await notifee.displayNotification({
+    id: `chore-assigned-${opts.choreId}`,
+    title: '📋 New chore',
+    body: opts.assignerName
+      ? `${opts.assignerName} assigned "${opts.choreTitle}" — +${opts.points} pts`
+      : `"${opts.choreTitle}" — +${opts.points} pts`,
+    android: {
+      channelId: CHANNEL_ID,
+      importance: AndroidImportance.HIGH,
+      pressAction: { id: 'default' },
+      smallIcon: 'ic_launcher',
+    },
+  });
+}
+
+/**
  * Display a foreground notification telling a buddy/co-manager that the
  * chore they submitted was approved. Each chore gets its own
  * notification (stable id) so the shade stacks them rather than

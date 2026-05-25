@@ -32,6 +32,10 @@ export interface Chore {
   /** True once the assignee has been notified that their chore was
    *  approved. Cleared when the chore goes back to pending. */
   notifiedAssignee?: boolean;
+  /** True once the assignee has been notified that this chore was
+   *  newly assigned to them. Set on first surface-on-device; not
+   *  cleared, since "newly assigned" only happens once per chore. */
+  notifiedAssignedTo?: boolean;
 }
 
 export interface ChorePoolItem {

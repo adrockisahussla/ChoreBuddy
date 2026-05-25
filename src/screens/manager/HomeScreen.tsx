@@ -106,9 +106,16 @@ export default function HomeScreen({ navigation }: any) {
             <>
               {meRow}
 
+              {(() => {
+                // useBuddies returns ALL family members (legacy naming);
+                // the Buddies section should only render role==='buddy',
+                // otherwise me + co-managers double-render here.
+                const actualBuddies = buddies.filter(b => b.role === 'buddy');
+                return (
+              <>
               <Text variant="sectionLabel">Buddies — tap to see details</Text>
-              {buddies.length > 0 ? (
-                buddies.map(b => {
+              {actualBuddies.length > 0 ? (
+                actualBuddies.map(b => {
                   const st = statsFor(b.uid);
                   return (
                     <BuddyStatPillsCard
@@ -126,6 +133,9 @@ export default function HomeScreen({ navigation }: any) {
               ) : (
                 <Text variant="meta" style={{ marginBottom: 8 }}>No buddies yet — add one below.</Text>
               )}
+              </>
+                );
+              })()}
 
               {coManagers.length > 0 && (
                 <>
