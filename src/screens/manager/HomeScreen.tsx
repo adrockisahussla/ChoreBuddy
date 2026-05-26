@@ -71,8 +71,18 @@ export default function HomeScreen({ navigation }: any) {
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
         {(() => {
           const statsFor = (uid: string) => {
-            const choreCount = chores.filter(c => c.assignedTo === uid && (c.status === 'todo' || c.status === 'pending')).length;
+            // Total = every active chore (todo + pending + approved). Rejected
+            // chores re-appear as todo so they're already counted; we exclude
+            // deleted (the doc is gone).
+            const choreCount = chores.filter(c =>
+              c.assignedTo === uid &&
+              (c.status === 'todo' || c.status === 'pending' || c.status === 'approved' || c.status === 'rejected'),
+            ).length;
             const approvals = chores.filter(c => c.assignedTo === uid && c.status === 'pending').length;
+            // Uncollected approvals — points kid hasn't tapped Collect on yet.
+            const readyToCollect = chores.filter(c =>
+              c.assignedTo === uid && c.status === 'approved' && !c.collectedAt,
+            ).length;
             // "Rewards" pill aggregates both: kid-suggested rewards waiting
             // for manager approval AND pool-redemption claims pending fulfillment.
             const rewardReq = rewardItems.filter(r => r.kidId === uid && r.status === 'requested').length
@@ -87,7 +97,7 @@ export default function HomeScreen({ navigation }: any) {
               (c.status === 'todo' || c.status === 'pending') &&
               isOverdue(c),
             ).length;
-            return { choreCount, approvals, rewardReq, remCount, overdue };
+            return { choreCount, approvals, rewardReq, remCount, overdue, readyToCollect };
           };
 
           const meRow = me && (
@@ -101,6 +111,7 @@ export default function HomeScreen({ navigation }: any) {
                 approvals={statsFor(me.uid).approvals}
                 reminders={statsFor(me.uid).remCount}
                 rewards={statsFor(me.uid).rewardReq}
+                readyToCollect={statsFor(me.uid).readyToCollect}
               />
             </>
           );
@@ -131,6 +142,7 @@ export default function HomeScreen({ navigation }: any) {
                       approvals={st.approvals}
                       reminders={st.remCount}
                       rewards={st.rewardReq}
+                      readyToCollect={st.readyToCollect}
                     />
                   );
                 })

@@ -153,7 +153,7 @@ export default function BuddyRewardsScreen({ navigation }: any) {
           {readyToCollect > 0 && (
             <TouchableOpacity
               style={s.collectNudge}
-              onPress={() => navigation.navigate('MyChores', { screen: 'MyChoresRoot' } as any)}
+              onPress={() => navigation.navigate('BuddyChores', { kidId: myUid })}
             >
               <RNText style={s.collectNudgeText}>
                 🪙 {readyToCollect} pts ready to collect — tap to go to Chores

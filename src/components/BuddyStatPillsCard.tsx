@@ -19,6 +19,9 @@ interface Props {
   approvals: number;
   reminders: number;
   rewards: number;
+  /** Count of approved-but-uncollected chores. When > 0 the Total Chores
+   *  pill flips to the accent palette and renders a "🪙 N" badge. */
+  readyToCollect?: number;
   /** Skip the avatar + name + chevron header (used on BuddyProfile, where
    *  the hero card already shows that info). */
   hideHeader?: boolean;
@@ -31,9 +34,11 @@ interface Props {
  * the matching per-buddy screen with the right tab pre-selected.
  */
 export default function BuddyStatPillsCard({
-  buddy, navigation, overdue, chores, approvals, reminders, rewards, hideHeader,
+  buddy, navigation, overdue, chores, approvals, reminders, rewards,
+  readyToCollect = 0, hideHeader,
 }: Props) {
   const go = (route: string, params: any) => navigation.navigate(route, params);
+  const hasReady = readyToCollect > 0;
 
   return (
     <View style={s.card}>
@@ -51,12 +56,19 @@ export default function BuddyStatPillsCard({
 
       <View style={s.pillStack}>
         <TouchableOpacity
-          style={[s.pill, s.pillChores]}
-          onPress={() => go('BuddyChores', { kidId: buddy.uid, tab: 'todo' })}
+          style={[s.pill, hasReady ? s.pillReady : s.pillChores]}
+          onPress={() => go('BuddyChores', { kidId: buddy.uid, tab: hasReady ? 'done' : 'todo' })}
           activeOpacity={0.7}
         >
-          <RNText style={[s.pillLabel, s.pillChoresText]}>📋 Total Chores</RNText>
-          <RNText style={[s.pillNum, s.pillChoresText]}>{chores}</RNText>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <RNText style={[s.pillLabel, hasReady ? s.pillReadyText : s.pillChoresText]}>📋 Total Chores</RNText>
+            {hasReady && (
+              <View style={s.readyBadge}>
+                <RNText style={s.readyBadgeText}>🪙 {readyToCollect}</RNText>
+              </View>
+            )}
+          </View>
+          <RNText style={[s.pillNum, hasReady ? s.pillReadyText : s.pillChoresText]}>{chores}</RNText>
         </TouchableOpacity>
         <TouchableOpacity
           style={[s.pill, overdue > 0 ? s.pillOverdue : s.pillNeutral]}
@@ -119,6 +131,13 @@ const s = StyleSheet.create({
   pillNeutralText: { color: theme.colors.muted },
   pillChores: { backgroundColor: theme.colors.blue + '22' },
   pillChoresText: { color: theme.colors.blue },
+  pillReady: { backgroundColor: theme.colors.accent + '22', borderWidth: 1, borderColor: theme.colors.accent },
+  pillReadyText: { color: theme.colors.accent },
+  readyBadge: {
+    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999,
+    backgroundColor: theme.colors.accent,
+  },
+  readyBadgeText: { color: '#fff', fontSize: 10, fontWeight: '900' },
   pillApprovals: { backgroundColor: '#f59e0b22' },
   pillApprovalsText: { color: '#f59e0b' },
   pillReminders: { backgroundColor: theme.colors.purple + '22' },

@@ -20,7 +20,11 @@ export default function BuddyProfileScreen({ route, navigation }: any) {
 
   const my = chores.filter(c => c.assignedTo === buddyUid);
   const pts = buddyPoints(chores, rewardClaims, buddyUid);
-  const myChores = my.filter(c => c.status === 'todo' || c.status === 'pending').length;
+  // Total = todo + pending + approved + rejected (all active chore states).
+  const myChores = my.filter(c =>
+    c.status === 'todo' || c.status === 'pending' || c.status === 'approved' || c.status === 'rejected',
+  ).length;
+  const myReadyToCollect = my.filter(c => c.status === 'approved' && !c.collectedAt).length;
   const myApprovals = my.filter(c => c.status === 'pending').length;
   const myOverdue = my.filter(c => (c.status === 'todo' || c.status === 'pending') && isOverdue(c)).length;
   const myRewardReq = rewardItems.filter(r => r.kidId === buddyUid && r.status === 'requested').length
@@ -80,6 +84,7 @@ export default function BuddyProfileScreen({ route, navigation }: any) {
             approvals={myApprovals}
             reminders={myReminders}
             rewards={myRewardReq}
+            readyToCollect={myReadyToCollect}
             hideHeader
           />
         )}
