@@ -108,9 +108,10 @@ export default function HomeScreen({ navigation }: any) {
 
               {(() => {
                 // useBuddies returns ALL family members (legacy naming);
-                // the Buddies section should only render role==='buddy',
-                // otherwise me + co-managers double-render here.
-                const actualBuddies = buddies.filter(b => b.role === 'buddy');
+                // the Buddies section should only render OTHER buddies —
+                // not me, and not co-managers. Both already have their own
+                // section above/below.
+                const actualBuddies = buddies.filter(b => b.role === 'buddy' && b.uid !== myUid);
                 return (
               <>
               <Text variant="sectionLabel">Buddies — tap to see details</Text>
