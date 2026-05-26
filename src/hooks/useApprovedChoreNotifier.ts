@@ -3,23 +3,25 @@ import { useChores } from './useChores';
 import { useCurrentUser } from './useCurrentUser';
 import { choreService } from '../services/choreService';
 import { notifyChoreApproved } from '../services/notificationService';
-import { enqueueToast } from '../utils/toastQueue';
+import { useCelebration } from '../components/Celebration';
 import { chorePoints } from '../utils/buddy';
 
 /**
- * Fires a toast + system notification on the *assignee's* device every
- * time one of their chores is approved. Uses a persisted
- * `notifiedAssignee` flag on the chore so:
- *   • Each approval generates its own toast (no batching).
+ * Fires a celebration modal + system notification on the *assignee's*
+ * device every time one of their chores is approved. Uses a persisted
+ * `notifiedAssignee` flag on the chore doc so:
+ *   • Each approval generates its own modal (no batching).
  *   • If multiple approvals happened while the user was offline, all
- *     fire on next sign-in.
- *   • The toast queue (utils/toastQueue) paces them so none overwrite.
- *
- * Toast format: 'Your chore "<title>" has been approved! +X points earned.'
+ *     queue and display one-after-another via CelebrationProvider.
+ *   • The chore must still be COLLECTED by the kid to bank the points
+ *     (see CHORE_COLLECTED). This celebration just announces the
+ *     approval; the Collect button on the Done tab is where banking
+ *     actually happens.
  */
 export function useApprovedChoreNotifier(): void {
   const { fbUser } = useCurrentUser();
   const { chores } = useChores();
+  const { celebrate } = useCelebration();
   const myUid = fbUser?.uid;
 
   useEffect(() => {
@@ -33,10 +35,14 @@ export function useApprovedChoreNotifier(): void {
 
     for (const chore of targets) {
       const pts = chorePoints(chore);
-      enqueueToast(
-        `Your chore "${chore.title}" has been approved! +${pts} points earned.`,
-        `approved-${chore.id}`,
-      );
+      celebrate({
+        emoji: '🎉',
+        headline: 'CHORE APPROVED!',
+        subtitle: chore.title,
+        count: pts,
+        countLabel: pts === 1 ? 'POINT' : 'POINTS',
+        dedupeKey: `approved-${chore.id}`,
+      });
       notifyChoreApproved({
         choreId: chore.id,
         choreTitle: chore.title,
@@ -44,5 +50,5 @@ export function useApprovedChoreNotifier(): void {
       }).catch(() => { /* non-fatal */ });
       choreService.update(chore.id, { notifiedAssignee: true }).catch(() => { /* swallow */ });
     }
-  }, [chores, myUid]);
+  }, [chores, myUid, celebrate]);
 }

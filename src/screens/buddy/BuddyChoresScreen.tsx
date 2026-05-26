@@ -12,6 +12,7 @@ import { Chore } from '../../types';
 import {
   Header, Screen, Card, Text, Pill, WeekNavigator, FAB, ChoreFormSheet, SCREEN_BOTTOM_PAD,
 } from '../../components';
+import { useCelebration } from '../../components/Celebration';
 
 const fmtChoreDue = (ts: number, recurrence: string): string => {
   const d = new Date(ts);
@@ -45,6 +46,7 @@ export default function BuddyChoresScreen({ navigation }: any) {
   const [addChoreOpen, setAddChoreOpen] = useState(false);
   const { chores } = useChores();
   const { members } = useFamilyMembers();
+  const { celebrate } = useCelebration();
   const assignerName = (uid?: string) =>
     uid ? (members.find(m => m.uid === uid)?.displayName || 'a manager') : 'a manager';
   const [selectedWeek, setSelectedWeek] = useState<string>(currentWeek());
@@ -70,9 +72,15 @@ export default function BuddyChoresScreen({ navigation }: any) {
   const collect = async (c: Chore) => {
     try {
       await choreService.update(c.id, { collectedAt: Date.now() });
-      if (Platform.OS === 'android') {
-        ToastAndroid.show(`🪙 +${chorePoints(c)} pts collected!`, ToastAndroid.SHORT);
-      }
+      const pts = chorePoints(c);
+      celebrate({
+        emoji: '🪙',
+        headline: 'POINTS COLLECTED!',
+        subtitle: c.title,
+        count: pts,
+        countLabel: pts === 1 ? 'POINT' : 'POINTS',
+        dedupeKey: `collected-${c.id}`,
+      });
     } catch (e: any) {
       if (Platform.OS === 'android') {
         ToastAndroid.show(`Failed: ${e?.message || e}`, ToastAndroid.LONG);
@@ -102,7 +110,11 @@ export default function BuddyChoresScreen({ navigation }: any) {
 
   return (
     <Screen contentStyle={{ padding: 0 }}>
-      <Header title="My Chores" onMenuPress={() => navigation.openDrawer?.()} />
+      <Header
+        title="My Chores"
+        onBackPress={navigation.canGoBack?.() ? () => navigation.goBack() : undefined}
+        onMenuPress={navigation.canGoBack?.() ? undefined : () => navigation.openDrawer?.()}
+      />
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
         <WeekNavigator weekOf={selectedWeek} onChange={setSelectedWeek} />
 

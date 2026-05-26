@@ -125,7 +125,11 @@ export default function BuddyRewardsScreen({ navigation }: any) {
 
   return (
     <Screen contentStyle={{ padding: 0 }}>
-      <Header title="Rewards" onMenuPress={() => navigation.openDrawer?.()} />
+      <Header
+        title="Rewards"
+        onBackPress={navigation.canGoBack?.() ? () => navigation.goBack() : undefined}
+        onMenuPress={navigation.canGoBack?.() ? undefined : () => navigation.openDrawer?.()}
+      />
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
         <Text variant="sectionLabel" style={{ marginTop: 0 }}>Wallet</Text>
         <Card padding={16} radius={theme.radius.lg} style={{ marginBottom: 12 }}>

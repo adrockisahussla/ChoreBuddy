@@ -10,6 +10,7 @@ import { initializeAppCheck } from './src/config/appCheck';
 import AuthGateway from './src/AuthGateway';
 import DrawerNavigator from './src/navigation/DrawerNavigator';
 import { ConfirmProvider } from './src/components/ConfirmModal';
+import { CelebrationProvider } from './src/components/Celebration';
 import SubmissionToasts from './src/components/SubmissionToasts';
 import ReminderAlarmHost from './src/components/ReminderAlarmHost';
 import { CurrentUserProvider } from './src/hooks/useCurrentUser';
@@ -111,15 +112,17 @@ export default function App() {
         <CurrentUserProvider>
           <TextScaleProvider>
             <AuthGateway>
-              <SubmissionToasts />
-              <ConfirmProvider>
-                <NavigationContainer linking={linking}>
-                  <DrawerNavigator />
-                </NavigationContainer>
-              </ConfirmProvider>
-              <ReminderAlarmHost />
-              <ReminderSchedulerHost />
-              <PermissionsBoot />
+              <CelebrationProvider>
+                <SubmissionToasts />
+                <ConfirmProvider>
+                  <NavigationContainer linking={linking}>
+                    <DrawerNavigator />
+                  </NavigationContainer>
+                </ConfirmProvider>
+                <ReminderAlarmHost />
+                <ReminderSchedulerHost />
+                <PermissionsBoot />
+              </CelebrationProvider>
             </AuthGateway>
           </TextScaleProvider>
         </CurrentUserProvider>

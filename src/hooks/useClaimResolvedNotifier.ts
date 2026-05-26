@@ -3,17 +3,20 @@ import firestore from '@react-native-firebase/firestore';
 import { useRewardClaims } from './useRewards';
 import { useCurrentUser } from './useCurrentUser';
 import { notifyClaimResolved } from '../services/notificationService';
+import { useCelebration } from '../components/Celebration';
 import { enqueueToast } from '../utils/toastQueue';
 
 /**
- * Fires a toast + system notification on the *claimant's* device when
- * their reward claim is approved or denied. Mirrors the approved-chore
- * notifier pattern: persisted `notifiedClaimant` flag on the claim doc
- * so each resolution notifies exactly once, with offline catch-up.
+ * Fires a celebration modal (approved) or a quick toast (denied) on
+ * the *claimant's* device when a reward claim is resolved. Mirrors the
+ * approved-chore notifier pattern: persisted `notifiedClaimant` flag
+ * on the claim doc so each resolution notifies exactly once, with
+ * offline catch-up via the CelebrationProvider queue.
  */
 export function useClaimResolvedNotifier(): void {
   const { fbUser } = useCurrentUser();
   const { rewardClaims } = useRewardClaims();
+  const { celebrate } = useCelebration();
   const myUid = fbUser?.uid;
 
   useEffect(() => {
@@ -27,12 +30,31 @@ export function useClaimResolvedNotifier(): void {
 
     for (const claim of targets) {
       const approved = claim.status === 'approved';
-      const message = approved
-        ? claim.minutes
-          ? `🎉 +${claim.minutes} min added to your screen-time wallet!`
-          : `🎉 "${claim.rewardTitle}" was approved!`
-        : `✗ Your "${claim.rewardTitle}" request was denied`;
-      enqueueToast(message, `claim-${claim.id}`);
+      if (approved) {
+        if (claim.minutes) {
+          celebrate({
+            emoji: '⏱',
+            headline: 'SCREEN TIME UNLOCKED!',
+            subtitle: claim.rewardTitle,
+            count: claim.minutes,
+            countLabel: claim.minutes === 1 ? 'MINUTE' : 'MINUTES',
+            dedupeKey: `claim-${claim.id}`,
+          });
+        } else {
+          celebrate({
+            emoji: '🎉',
+            headline: 'REWARD UNLOCKED!',
+            subtitle: claim.rewardTitle,
+            dedupeKey: `claim-${claim.id}`,
+          });
+        }
+      } else {
+        // Denials use a quiet bottom toast — no party for bad news.
+        enqueueToast(
+          `Your "${claim.rewardTitle}" request was denied`,
+          `claim-${claim.id}`,
+        );
+      }
       notifyClaimResolved({
         claimId: claim.id,
         approved,
@@ -43,5 +65,5 @@ export function useClaimResolvedNotifier(): void {
         .update({ notifiedClaimant: true })
         .catch(() => { /* swallow */ });
     }
-  }, [rewardClaims, myUid]);
+  }, [rewardClaims, myUid, celebrate]);
 }
