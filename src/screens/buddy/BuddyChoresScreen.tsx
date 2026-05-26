@@ -39,8 +39,9 @@ const fmtChoreDue = (ts: number, recurrence: string): string => {
  * so the buddy can see what to fix and re-submit.
  */
 type BuddyChoreTab = 'todo' | 'waiting' | 'done';
+const isBuddyChoreTab = (v: any): v is BuddyChoreTab => v === 'todo' || v === 'waiting' || v === 'done';
 
-export default function BuddyChoresScreen({ navigation }: any) {
+export default function BuddyChoresScreen({ route, navigation }: any) {
   const { fbUser } = useCurrentUser();
   const myUid = fbUser?.uid;
   const [addChoreOpen, setAddChoreOpen] = useState(false);
@@ -50,7 +51,8 @@ export default function BuddyChoresScreen({ navigation }: any) {
   const assignerName = (uid?: string) =>
     uid ? (members.find(m => m.uid === uid)?.displayName || 'a manager') : 'a manager';
   const [selectedWeek, setSelectedWeek] = useState<string>(currentWeek());
-  const [tab, setTab] = useState<BuddyChoreTab>('todo');
+  const initialTab: BuddyChoreTab = isBuddyChoreTab(route?.params?.tab) ? route.params.tab : 'todo';
+  const [tab, setTab] = useState<BuddyChoreTab>(initialTab);
 
   const my = chores.filter(c => c.assignedTo === myUid);
   const inWeek = my.filter(c => {

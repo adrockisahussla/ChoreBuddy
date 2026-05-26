@@ -46,8 +46,9 @@ export default function BuddyRewardsScreen({ navigation }: any) {
   const available = totalEarned - spent - pendingSpent;
   const minutesRemaining = userDoc?.minutesRemaining || 0;
 
-  // My pool entries (manager curates per-kid)
-  const myPool = rewardPool.filter(p => p.kidId === myUid);
+  // My pool entries — per-kid entries assigned to me PLUS any "all kids"
+  // entries (kidId === '') the manager set up family-wide.
+  const myPool = rewardPool.filter(p => p.kidId === myUid || !p.kidId);
 
   // Legacy active rewards (pre-pool model) — surface alongside pool
   const legacyActive = rewardItems.filter(r => (r as any).kidId === myUid && r.status === 'active');
@@ -153,7 +154,7 @@ export default function BuddyRewardsScreen({ navigation }: any) {
           {readyToCollect > 0 && (
             <TouchableOpacity
               style={s.collectNudge}
-              onPress={() => navigation.navigate('BuddyChores', { kidId: myUid })}
+              onPress={() => navigation.navigate('BuddyChores', { kidId: myUid, tab: 'done' })}
             >
               <RNText style={s.collectNudgeText}>
                 🪙 {readyToCollect} pts ready to collect — tap to go to Chores

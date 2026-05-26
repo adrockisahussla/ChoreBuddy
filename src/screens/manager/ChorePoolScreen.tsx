@@ -86,11 +86,9 @@ export default function ChorePoolScreen({ navigation }: any) {
         )}
       </ScrollView>
 
-      {formOpen && (
-        <View style={s.fullCover}>
-          <PoolFormScreen initial={editing} onClose={close} />
-        </View>
-      )}
+      <Modal visible={formOpen} animationType="slide" onRequestClose={close}>
+        <PoolFormScreen initial={editing} onClose={close} />
+      </Modal>
     </Screen>
   );
 }
@@ -291,7 +289,7 @@ function PoolFormScreen({ initial, onClose }: FormProps) {
         </View>
       </KeyboardAwareScrollView>
 
-      <View style={[s.stickyFooter, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+      <View style={[s.stickyFooter, { paddingBottom: insets.bottom + 16 }]}>
         <View style={s.footerRow}>
           <TouchableOpacity
             style={[s.footerBtn, s.footerBtnSecondary, !canSave && s.btnDisabled]}

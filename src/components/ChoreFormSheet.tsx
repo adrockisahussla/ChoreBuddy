@@ -263,7 +263,7 @@ function ChoreFormBody({ initial, onClose, defaultBuddyUid }: {
 
       </KeyboardAwareScrollView>
 
-      <View style={[s.stickyFooter, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+      <View style={[s.stickyFooter, { paddingBottom: insets.bottom + 16 }]}>
         <View style={s.footerRow}>
           <TouchableOpacity
             style={[s.footerBtn, s.footerBtnSecondary, !canSave && s.btnDisabled]}
