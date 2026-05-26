@@ -23,7 +23,8 @@ export default function BuddyProfileScreen({ route, navigation }: any) {
   const myChores = my.filter(c => c.status === 'todo' || c.status === 'pending').length;
   const myApprovals = my.filter(c => c.status === 'pending').length;
   const myOverdue = my.filter(c => (c.status === 'todo' || c.status === 'pending') && isOverdue(c)).length;
-  const myRewardReq = rewardItems.filter(r => r.kidId === buddyUid && r.status === 'requested').length;
+  const myRewardReq = rewardItems.filter(r => r.kidId === buddyUid && r.status === 'requested').length
+    + rewardClaims.filter(c => c.kidId === buddyUid && c.status === 'pending').length;
   const myReminders = reminders.filter(r => {
     if (r.assignedTo !== buddyUid) return false;
     const t = new Date(r.date + (r.time ? 'T' + r.time : 'T23:59:59')).getTime();

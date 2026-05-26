@@ -63,14 +63,15 @@ function ChoreFormBody({ initial, onClose, defaultBuddyUid }: {
   const [recur, setRecur] = useState<Recurrence>(initial?.recurrence || 'weekly');
   const [points, setPoints] = useState<number>(initial?.points ?? POINTS_PER.weekly);
   const [pickerOpen, setPickerOpen] = useState(false);
-  // For per-buddy spawn, default the date to today so the chore is due
-  // immediately. Otherwise (pool-creation), leave null so the user picks.
-  const [onceDate, setOnceDate] = useState<Date | null>(defaultBuddyUid ? new Date() : null);
+  // Default the one-time date to today so the user can hit Save without
+  // touching the date wheel. (Only matters when recur === 'once'.)
+  const [onceDate, setOnceDate] = useState<Date | null>(new Date());
   const [dateWheelOpen, setDateWheelOpen] = useState(false);
   const [recurOpen, setRecurOpen] = useState(false);
   const [weekdays, setWeekdays] = useState<number[]>([new Date().getDay()]);
   const [dayOpen, setDayOpen] = useState(false);
-  const [remindBefore, setRemindBefore] = useState<number | null>(null);
+  // Default to 2-minute pre-due reminder so kids get a heads-up by default.
+  const [remindBefore, setRemindBefore] = useState<number | null>(2);
   const [time, setTime] = useState<{ h: number; m: number }>(() => {
     const n = new Date();
     return { h: n.getHours(), m: n.getMinutes() };
@@ -165,7 +166,7 @@ function ChoreFormBody({ initial, onClose, defaultBuddyUid }: {
 
       <KeyboardAwareScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+        contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
         keyboardShouldPersistTaps="handled"
         enableOnAndroid
         extraScrollHeight={20}
@@ -258,34 +259,41 @@ function ChoreFormBody({ initial, onClose, defaultBuddyUid }: {
           ))}
         </View>
 
-        <View style={s.formFooter}>
-          <View style={s.footerRow}>
-            <TouchableOpacity
-              style={[s.footerBtn, s.footerBtnSecondary, !canSave && s.btnDisabled]}
-              disabled={!canSave}
-              onPress={savePoolOnly}
-            >
-              <RNText style={s.footerBtnSecondaryText}>Save</RNText>
-              <RNText style={s.footerBtnSubtext}>Pool only</RNText>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[s.footerBtn, s.footerBtnPrimary, (!canSave || (!defaultBuddyUid && buddies.length === 0)) && s.btnDisabled]}
-              disabled={!canSave || (!defaultBuddyUid && buddies.length === 0)}
-              onPress={primaryAssign}
-            >
-              <RNText style={s.footerBtnPrimaryText}>Save &amp; Assign</RNText>
-              <RNText style={[s.footerBtnSubtext, { color: '#000', opacity: 0.7 }]}>
-                {targetBuddy
-                  ? `to ${targetBuddy.displayName}`
-                  : (buddies.length === 0 ? 'No buddies' : 'Pick a buddy →')}
-              </RNText>
-            </TouchableOpacity>
-          </View>
+      </KeyboardAwareScrollView>
+
+      <View style={s.stickyFooter}>
+        <View style={s.footerRow}>
+          <TouchableOpacity
+            style={[s.footerBtn, s.footerBtnSecondary, !canSave && s.btnDisabled]}
+            disabled={!canSave}
+            onPress={savePoolOnly}
+          >
+            <RNText style={s.footerBtnSecondaryText}>Save</RNText>
+            <RNText style={s.footerBtnSubtext}>Pool only</RNText>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.footerBtn, s.footerBtnPrimary, (!canSave || (!defaultBuddyUid && buddies.length === 0)) && s.btnDisabled]}
+            disabled={!canSave || (!defaultBuddyUid && buddies.length === 0)}
+            onPress={primaryAssign}
+          >
+            <RNText style={s.footerBtnPrimaryText}>Save &amp; Assign</RNText>
+            <RNText style={[s.footerBtnSubtext, { color: '#000', opacity: 0.7 }]}>
+              {targetBuddy
+                ? `to ${targetBuddy.displayName}`
+                : (buddies.length === 0 ? 'No buddies' : 'Pick a buddy →')}
+            </RNText>
+          </TouchableOpacity>
           {editing && (
-            <Button label="🗑 Delete chore" variant="danger" onPress={del} full style={{ marginTop: 4 }} />
+            <TouchableOpacity
+              style={[s.footerBtn, s.footerBtnDanger]}
+              onPress={del}
+            >
+              <RNText style={s.footerBtnDangerText}>🗑 Delete</RNText>
+              <RNText style={[s.footerBtnSubtext, { color: '#fff', opacity: 0.85 }]}>Remove</RNText>
+            </TouchableOpacity>
           )}
         </View>
-      </KeyboardAwareScrollView>
+      </View>
 
       <Modal
         visible={pickerOpen}
@@ -340,8 +348,9 @@ function ChoreFormBody({ initial, onClose, defaultBuddyUid }: {
         onConfirm={(r) => {
           setRecur(r);
           setPoints(POINTS_PER[r]);
-          if (r !== 'once') setOnceDate(null);
-          else if (defaultBuddyUid && !onceDate) setOnceDate(new Date());
+          // Switching back to 'once' restores today as the default; switching
+          // away keeps the existing value harmlessly (it's ignored unless once).
+          if (r === 'once' && !onceDate) setOnceDate(new Date());
         }}
       />
 
@@ -379,12 +388,19 @@ const s = StyleSheet.create({
   sheetCheck: { color: theme.colors.muted, fontWeight: '900', fontSize: 18 },
 
   formFooter: { paddingTop: 24, gap: 10 },
-  footerRow: { flexDirection: 'row', gap: 10 },
-  footerBtn: { flex: 1, padding: 14, borderRadius: theme.radius.lg, alignItems: 'center', justifyContent: 'center', minHeight: 64 },
+  stickyFooter: {
+    backgroundColor: theme.colors.bg,
+    borderTopWidth: 1, borderTopColor: theme.colors.cardBorder,
+    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16,
+  },
+  footerRow: { flexDirection: 'row', gap: 8 },
+  footerBtn: { flex: 1, paddingVertical: 12, paddingHorizontal: 8, borderRadius: theme.radius.lg, alignItems: 'center', justifyContent: 'center', minHeight: 64 },
   footerBtnPrimary: { backgroundColor: theme.colors.accent },
-  footerBtnPrimaryText: { color: '#000', fontWeight: '900', fontSize: 15 },
+  footerBtnPrimaryText: { color: '#000', fontWeight: '900', fontSize: 14 },
   footerBtnSecondary: { backgroundColor: theme.colors.card, borderWidth: 1.5, borderColor: theme.colors.cardBorder },
-  footerBtnSecondaryText: { color: theme.colors.text, fontWeight: '900', fontSize: 15 },
-  footerBtnSubtext: { fontSize: 11, fontWeight: '700', color: theme.colors.muted, marginTop: 2 },
+  footerBtnSecondaryText: { color: theme.colors.text, fontWeight: '900', fontSize: 14 },
+  footerBtnDanger: { backgroundColor: theme.colors.danger },
+  footerBtnDangerText: { color: '#fff', fontWeight: '900', fontSize: 14 },
+  footerBtnSubtext: { fontSize: 10, fontWeight: '700', color: theme.colors.muted, marginTop: 2 },
   btnDisabled: { opacity: 0.4 },
 });

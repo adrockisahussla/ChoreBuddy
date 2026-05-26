@@ -73,7 +73,10 @@ export default function HomeScreen({ navigation }: any) {
           const statsFor = (uid: string) => {
             const choreCount = chores.filter(c => c.assignedTo === uid && (c.status === 'todo' || c.status === 'pending')).length;
             const approvals = chores.filter(c => c.assignedTo === uid && c.status === 'pending').length;
-            const rewardReq = rewardItems.filter(r => r.kidId === uid && r.status === 'requested').length;
+            // "Rewards" pill aggregates both: kid-suggested rewards waiting
+            // for manager approval AND pool-redemption claims pending fulfillment.
+            const rewardReq = rewardItems.filter(r => r.kidId === uid && r.status === 'requested').length
+              + rewardClaims.filter(c => c.kidId === uid && c.status === 'pending').length;
             const remCount = reminders.filter(r => {
               if (r.assignedTo !== uid) return false;
               const t = new Date(r.date + (r.time ? 'T' + r.time : 'T23:59:59')).getTime();

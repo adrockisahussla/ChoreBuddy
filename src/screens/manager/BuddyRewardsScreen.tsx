@@ -197,17 +197,39 @@ export default function BuddyRewardsScreen({ route, navigation }: any) {
               <Text variant="empty" style={{ padding: 40 }}>No past rewards yet.</Text>
             ) : resolvedClaims.map(c => {
               const isApproved = c.status === 'approved';
+              const onDeletePast = async () => {
+                const ok = await confirm({
+                  title: 'Delete from history?',
+                  message: `Remove "${c.rewardTitle}" from past rewards. This won't undo the points or minutes — just clears the row.`,
+                  confirmLabel: 'Delete',
+                  confirmDestructive: true,
+                });
+                if (!ok) return;
+                try {
+                  await claimService.remove(c.id);
+                  if (Platform.OS === 'android') {
+                    ToastAndroid.show(`Removed "${c.rewardTitle}"`, ToastAndroid.SHORT);
+                  }
+                } catch (e: any) {
+                  if (Platform.OS === 'android') {
+                    ToastAndroid.show(`Delete failed: ${e?.message || e}`, ToastAndroid.LONG);
+                  }
+                }
+              };
               return (
                 <Card key={c.id} row radius={theme.radius.lg} style={{ gap: 8 }}>
                   <View style={{ flex: 1 }}>
                     <Text variant="h3" style={{ fontSize: 14 }}>🎁 {c.rewardTitle}</Text>
                     <Text variant="meta" style={{ marginTop: 2 }}>
-                      {c.cost} pts · {fmtTime(c.resolvedAt)}
+                      {c.minutes ? `${c.minutes} min · ` : ''}{c.cost} pts · {fmtTime(c.resolvedAt)}
                     </Text>
                   </View>
                   <RNText style={[s.statusPill, isApproved ? s.statusApproved : s.statusDenied]}>
                     {isApproved ? '✓ Fulfilled' : '✕ Denied'}
                   </RNText>
+                  <TouchableOpacity style={s.pastDelBtn} onPress={onDeletePast} hitSlop={10}>
+                    <RNText style={{ fontSize: 14 }}>🗑</RNText>
+                  </TouchableOpacity>
                 </Card>
               );
             })}
@@ -245,6 +267,7 @@ const s = StyleSheet.create({
   actionText: { color: '#fff', fontWeight: '900', fontSize: 12 },
 
   statusPill: { fontSize: 10, fontWeight: '900', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, overflow: 'hidden' },
+  pastDelBtn: { width: 32, height: 32, borderRadius: 16, borderWidth: 1.5, borderColor: theme.colors.danger + '60', backgroundColor: theme.colors.danger + '15', justifyContent: 'center', alignItems: 'center' },
   statusApproved: { backgroundColor: '#22c55e33', color: '#22c55e' },
   statusDenied: { backgroundColor: '#ef444433', color: '#ef4444' },
 });

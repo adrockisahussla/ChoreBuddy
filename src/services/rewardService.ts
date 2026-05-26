@@ -49,4 +49,6 @@ export const claimService = {
     claimsCol().doc(claimId).update({ status: 'approved', resolvedAt: Date.now() }),
   deny: (claimId: string) =>
     claimsCol().doc(claimId).update({ status: 'denied', resolvedAt: Date.now() }),
+  remove: (claimId: string) =>
+    claimsCol().doc(claimId).delete(),
 };
