@@ -62,13 +62,15 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
 
   const todo = inWeek.filter(c => c.status === 'todo' || c.status === 'rejected');
   const pending = inWeek.filter(c => c.status === 'pending');
-  const approved = inWeek.filter(c => c.status === 'approved' && c.weekOf === selectedWeek);
-  const uncollected = approved.filter(c => !c.collectedAt);
-  const collected = approved.filter(c => !!c.collectedAt);
+  // Uncollected approvals are SHOWN across all weeks (not just the
+  // selected one) because they're "money on the table" — hiding them
+  // behind the week navigator would orphan pre-collect-feature chores
+  // and any approval that landed last week. Collected approvals are
+  // hidden entirely; the Done tab is only "stuff to collect."
+  const uncollected = my.filter(c => c.status === 'approved' && !c.collectedAt);
+  const collectedThisWeek = inWeek.filter(c => c.status === 'approved' && !!c.collectedAt);
 
-  // Wallet pill only counts collected — uncollected is "ready to collect"
-  // and is called out separately so the kid sees the difference.
-  const totalPts = collected.reduce((s, c) => s + chorePoints(c), 0);
+  const totalPts = collectedThisWeek.reduce((s, c) => s + chorePoints(c), 0);
   const readyPts = uncollected.reduce((s, c) => s + chorePoints(c), 0);
 
   const collect = async (c: Chore) => {
@@ -128,7 +130,7 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
                 This week
               </Text>
               <Text variant="h3" style={{ fontSize: 16 }}>
-                {approved.length} done · {todo.length} to do
+                {collectedThisWeek.length} done · {todo.length} to do
               </Text>
               {readyPts > 0 && (
                 <Text style={s.readyHint}>
@@ -232,58 +234,35 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
           </>
         )}
 
-        {/* Done tab — uncollected at top with big Collect buttons, collected below */}
-        {tab === 'done' && approved.length > 0 && (
+        {/* Done tab — only uncollected approvals show; once collected the
+            chore disappears (points are banked, history lives in the
+            Rewards activity feed). */}
+        {tab === 'done' && uncollected.length > 0 && (
           <>
-            {uncollected.length > 0 && (
-              <>
-                <Text variant="sectionLabel" style={{ marginTop: 0, color: theme.colors.accent }}>
-                  🪙 Collect your points!
-                </Text>
-                {uncollected.map(c => (
-                  <TouchableOpacity
-                    key={c.id}
-                    style={s.collectRow}
-                    onPress={() => collect(c)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={s.coinIcon}>
-                      <RNText style={s.coinText}>🪙</RNText>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text variant="h3" style={{ fontSize: 14 }}>{c.title}</Text>
-                      <Text variant="tiny" style={{ marginTop: 2, fontSize: 11 }}>
-                        Approved by {assignerName(c.createdBy)} — tap to bank +{chorePoints(c)} pts
-                      </Text>
-                    </View>
-                    <View style={s.collectBtn}>
-                      <RNText style={s.collectBtnText}>+{chorePoints(c)}</RNText>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </>
-            )}
-
-            {collected.length > 0 && (
-              <>
-                {uncollected.length > 0 && (
-                  <Text variant="sectionLabel" style={{ marginTop: 16 }}>Collected</Text>
-                )}
-                {collected.map(c => (
-                  <View key={c.id} style={s.row}>
-                    <View style={[s.checkbox, s.checkboxDone]}>
-                      <RNText style={s.checkboxDoneMark}>✓</RNText>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text variant="h3" style={{ fontSize: 14, textDecorationLine: 'line-through' }}>{c.title}</Text>
-                      <Text variant="tiny" style={{ marginTop: 2, fontSize: 11 }}>
-                        +{chorePoints(c)} pts banked · from {assignerName(c.createdBy)}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </>
-            )}
+            <Text variant="sectionLabel" style={{ marginTop: 0, color: theme.colors.accent }}>
+              🪙 Collect your points!
+            </Text>
+            {uncollected.map(c => (
+              <TouchableOpacity
+                key={c.id}
+                style={s.collectRow}
+                onPress={() => collect(c)}
+                activeOpacity={0.7}
+              >
+                <View style={s.coinIcon}>
+                  <RNText style={s.coinText}>🪙</RNText>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text variant="h3" style={{ fontSize: 14 }}>{c.title}</Text>
+                  <Text variant="tiny" style={{ marginTop: 2, fontSize: 11 }}>
+                    Approved by {assignerName(c.createdBy)} — tap to bank +{chorePoints(c)} pts
+                  </Text>
+                </View>
+                <View style={s.collectBtn}>
+                  <RNText style={s.collectBtnText}>+{chorePoints(c)}</RNText>
+                </View>
+              </TouchableOpacity>
+            ))}
           </>
         )}
 
@@ -296,10 +275,10 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
         {inWeek.length > 0 && (
           (tab === 'todo' && todo.length === 0) ||
           (tab === 'waiting' && pending.length === 0) ||
-          (tab === 'done' && approved.length === 0)
+          (tab === 'done' && uncollected.length === 0)
         ) && (
           <Text variant="empty" style={{ padding: 30 }}>
-            {tab === 'todo' ? 'Nothing to do here.' : tab === 'waiting' ? 'Nothing waiting for review.' : 'No completed chores yet.'}
+            {tab === 'todo' ? 'Nothing to do here.' : tab === 'waiting' ? 'Nothing waiting for review.' : 'Nothing to collect right now.'}
           </Text>
         )}
       </ScrollView>
