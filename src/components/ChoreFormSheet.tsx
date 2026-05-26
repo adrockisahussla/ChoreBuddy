@@ -4,6 +4,7 @@ import {
   ToastAndroid, Pressable, Modal, Text as RNText,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChorePoolItem, Recurrence } from '../types';
 import { theme } from '../theme';
 import { POINTS_PER } from '../utils/buddy';
@@ -80,6 +81,7 @@ function ChoreFormBody({ initial, onClose, defaultBuddyUid }: {
   const { buddies } = useBuddies();
   const familyId = useFamilyId();
   const { fbUser } = useCurrentUser();
+  const insets = useSafeAreaInsets();
 
   const buildPool = (): Omit<ChorePoolItem, 'id' | 'createdAt'> => ({
     familyId: familyId || '',
@@ -261,7 +263,7 @@ function ChoreFormBody({ initial, onClose, defaultBuddyUid }: {
 
       </KeyboardAwareScrollView>
 
-      <View style={s.stickyFooter}>
+      <View style={[s.stickyFooter, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <View style={s.footerRow}>
           <TouchableOpacity
             style={[s.footerBtn, s.footerBtnSecondary, !canSave && s.btnDisabled]}
