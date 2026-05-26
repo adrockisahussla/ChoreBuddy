@@ -31,7 +31,14 @@ service cloud.firestore {
       allow read: if isMe(uid)
         || (hasUserDoc() && resource.data.familyId == myUser().familyId);
       allow create: if isMe(uid) && request.resource.data.uid == uid;
-      allow update: if isMe(uid) && request.resource.data.uid == uid;
+      // Self can update their own doc (uid must remain pinned).
+      // Same-family managers can update OTHER family members' docs but
+      // only the `minutesRemaining` field — used when fulfilling a
+      // screen-time claim to credit the kid's wallet.
+      allow update: if (isMe(uid) && request.resource.data.uid == uid)
+        || (amManager()
+             && resource.data.familyId == myUser().familyId
+             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['minutesRemaining']));
       allow delete: if isMe(uid)
         || (amManager() && resource.data.familyId == myUser().familyId);
     }
