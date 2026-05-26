@@ -6,7 +6,7 @@ import { useRewards, useRewardClaims } from '../../hooks/useRewards';
 import { useInvites } from '../../hooks/useInvites';
 import { useBuddies } from '../../hooks/useBuddies';
 import { theme } from '../../theme';
-import { isOverdue, chorePoints } from '../../utils/buddy';
+import { isOverdue, buddyPoints } from '../../utils/buddy';
 import { inviteService } from '../../services/inviteService';
 import {
   Header, Screen, Card, Avatar, Badge, Text, Button,
@@ -88,7 +88,7 @@ export default function BuddiesScreen({ navigation }: any) {
         {buddies.map(b => {
           const my = chores.filter(c => c.assignedTo === b.uid);
           const active = my.filter(c => c.status === 'todo' || c.status === 'pending' || isOverdue(c)).length;
-          const points = my.filter(c => c.status === 'approved').reduce((sum, c) => sum + chorePoints(c), 0);
+          const pts = buddyPoints(chores, rewardClaims, b.uid);
           const reminderCount = reminders.filter(r => r.assignedTo === b.uid).length;
           const pendingMyChores = my.filter(c => c.status === 'pending').length;
           const pendingMyRewards = rewardItems.filter(r => r.kidId === b.uid && r.status === 'requested').length;
@@ -109,7 +109,7 @@ export default function BuddiesScreen({ navigation }: any) {
                   {active} {active === 1 ? 'chore' : 'chores'}
                 </Text>
                 <Text style={{ marginTop: 2, fontSize: 13, color: theme.colors.accent, fontWeight: '700' }}>
-                  ★ {points} pts
+                  ★ {pts.available} pts{pts.ready > 0 ? `  ·  ${pts.ready} ready` : ''}
                 </Text>
               </View>
               <Text style={s.arrow}>›</Text>

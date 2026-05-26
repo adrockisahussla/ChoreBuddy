@@ -1,4 +1,4 @@
-import { Chore, Recurrence, User } from '../types';
+import { Chore, Recurrence, RewardClaim, User } from '../types';
 
 /** Format a buddy's display name from a user list. Falls back to the raw id. */
 export const buddyLabel = (uid: string, buddies?: User[]): string => {
@@ -19,3 +19,47 @@ export const chorePoints = (c: Pick<Chore, 'points' | 'recurrence'> | null | und
 
 export const isOverdue = (c: Pick<Chore, 'dueDate' | 'status'> | null | undefined): boolean =>
   !!c?.dueDate && c.dueDate < Date.now() && c.status !== 'approved' && c.status !== 'pending';
+
+/**
+ * Canonical points breakdown for one buddy. Used by every manager-side
+ * surface that shows the kid's balance so the number matches what the
+ * kid actually sees in their own wallet.
+ *
+ *   available     = banked − pendingSpent           (spendable right now)
+ *   banked        = lifetimeEarned − spent          (resting balance)
+ *   ready         = uncollected approved chore pts  (kid hasn't tapped Collect yet)
+ *   lifetimeEarned = collected approved chore pts
+ *   spent         = sum of approved claims
+ *   pendingSpent  = sum of pending claims (held until manager fulfills/denies)
+ */
+export interface BuddyPointsBreakdown {
+  available: number;
+  banked: number;
+  ready: number;
+  spent: number;
+  pendingSpent: number;
+  lifetimeEarned: number;
+}
+
+export const buddyPoints = (
+  chores: Chore[],
+  claims: RewardClaim[],
+  uid: string,
+): BuddyPointsBreakdown => {
+  const myApproved = chores.filter(c => c.assignedTo === uid && c.status === 'approved');
+  const collected = myApproved.filter(c => !!c.collectedAt);
+  const lifetimeEarned = collected.reduce((s, c) => s + chorePoints(c), 0);
+  const ready = myApproved
+    .filter(c => !c.collectedAt)
+    .reduce((s, c) => s + chorePoints(c), 0);
+  const myClaims = claims.filter(c => c.kidId === uid);
+  const spent = myClaims
+    .filter(c => c.status === 'approved')
+    .reduce((s, c) => s + (c.cost || 0), 0);
+  const pendingSpent = myClaims
+    .filter(c => c.status === 'pending')
+    .reduce((s, c) => s + (c.cost || 0), 0);
+  const banked = lifetimeEarned - spent;
+  const available = banked - pendingSpent;
+  return { available, banked, ready, spent, pendingSpent, lifetimeEarned };
+};

@@ -5,7 +5,7 @@ import { useReminders } from '../../hooks/useReminders';
 import { useRewards, useRewardClaims } from '../../hooks/useRewards';
 import { useBuddies } from '../../hooks/useBuddies';
 import { theme } from '../../theme';
-import { chorePoints, isOverdue, buddyLabel } from '../../utils/buddy';
+import { isOverdue, buddyLabel, buddyPoints } from '../../utils/buddy';
 import { Header, Screen, Card, Avatar, Text, AddBuddyForm, BuddyStatPillsCard, SCREEN_BOTTOM_PAD } from '../../components';
 
 export default function BuddyProfileScreen({ route, navigation }: any) {
@@ -16,10 +16,10 @@ export default function BuddyProfileScreen({ route, navigation }: any) {
   const { chores } = useChores();
   const { reminders } = useReminders();
   const { rewardItems } = useRewards();
-  const { rewardClaims: _rewardClaims } = useRewardClaims();
+  const { rewardClaims } = useRewardClaims();
 
   const my = chores.filter(c => c.assignedTo === buddyUid);
-  const points = my.filter(c => c.status === 'approved').reduce((s, c) => s + chorePoints(c), 0);
+  const pts = buddyPoints(chores, rewardClaims, buddyUid);
   const myChores = my.filter(c => c.status === 'todo' || c.status === 'pending').length;
   const myApprovals = my.filter(c => c.status === 'pending').length;
   const myOverdue = my.filter(c => (c.status === 'todo' || c.status === 'pending') && isOverdue(c)).length;
@@ -54,7 +54,14 @@ export default function BuddyProfileScreen({ route, navigation }: any) {
               {buddy.email}
             </Text>
           )}
-          <Text style={s.heroPoints}>★ {points} pts</Text>
+          <Text style={s.heroPoints}>★ {pts.available} pts</Text>
+          {(pts.ready > 0 || pts.pendingSpent > 0) && (
+            <Text style={s.heroPointsSub}>
+              {pts.ready > 0 ? `${pts.ready} ready to collect` : ''}
+              {pts.ready > 0 && pts.pendingSpent > 0 ? '  ·  ' : ''}
+              {pts.pendingSpent > 0 ? `${pts.pendingSpent} pts pending claim` : ''}
+            </Text>
+          )}
         </Card>
 
         <AddBuddyForm
@@ -105,6 +112,12 @@ const s = StyleSheet.create({
     marginTop: 10,
     fontSize: 18,
     color: theme.colors.accent,
+    fontWeight: '700',
+  },
+  heroPointsSub: {
+    marginTop: 4,
+    fontSize: 12,
+    color: theme.colors.muted,
     fontWeight: '700',
   },
 });
