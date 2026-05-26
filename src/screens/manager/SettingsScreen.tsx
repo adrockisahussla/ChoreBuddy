@@ -10,6 +10,8 @@ import {
   PermissionStatus,
 } from '../../services/permissions';
 import { scheduleReminderNotification } from '../../services/notificationService';
+import { useCurrentUser } from '../../hooks/useCurrentUser';
+import { userService } from '../../services/userService';
 
 function PermRow({ label, granted, onPress }: { label: string; granted: boolean; onPress: () => void }) {
   return (
@@ -62,6 +64,19 @@ export default function SettingsScreen({ navigation }: any) {
         : `Test failed: ${res.message || 'unknown'}`;
       ToastAndroid.show(msg, ToastAndroid.LONG);
     }
+  };
+
+  const { fbUser, userDoc } = useCurrentUser();
+  const cancelOnSignOut = !!userDoc?.cancelAlarmsOnSignOut;
+  const toggleCancelOnSignOut = () => {
+    if (!fbUser?.uid) return;
+    userService
+      .update(fbUser.uid, { cancelAlarmsOnSignOut: !cancelOnSignOut })
+      .catch(e => {
+        if (Platform.OS === 'android') {
+          ToastAndroid.show(`Failed: ${e?.message || e}`, ToastAndroid.LONG);
+        }
+      });
   };
 
   const onRequestNotif = async () => {
@@ -164,6 +179,18 @@ export default function SettingsScreen({ navigation }: any) {
 
           <TouchableOpacity style={[s.testBtn, !perms?.allGranted && s.testBtnDimmed]} onPress={onTestReminder}>
             <RNText style={s.testBtnText}>Send test reminder (10s)</RNText>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={s.toggleRow} onPress={toggleCancelOnSignOut} activeOpacity={0.7}>
+            <View style={{ flex: 1 }}>
+              <RNText style={s.toggleLabel}>Cancel alarms on sign-out</RNText>
+              <RNText style={s.toggleHint}>
+                Stops this account's reminders from ringing under another account on the same phone. Trade-off: alarms are lost if nobody signs back in before fire-time.
+              </RNText>
+            </View>
+            <View style={[s.toggleSwitch, cancelOnSignOut && s.toggleSwitchOn]}>
+              <View style={[s.toggleKnob, cancelOnSignOut && s.toggleKnobOn]} />
+            </View>
           </TouchableOpacity>
         </Card>
 
@@ -273,4 +300,23 @@ const s = StyleSheet.create({
   },
   testBtnDimmed: { opacity: 0.6 },
   testBtnText: { color: '#fff', fontWeight: '900', fontSize: 14 },
+
+  toggleRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    marginTop: 12, paddingTop: 12,
+    borderTopWidth: 1, borderTopColor: theme.colors.cardBorder,
+  },
+  toggleLabel: { color: theme.colors.text, fontWeight: '900', fontSize: 14 },
+  toggleHint: { color: theme.colors.muted, fontSize: 12, marginTop: 4, lineHeight: 16 },
+  toggleSwitch: {
+    width: 44, height: 26, borderRadius: 13,
+    backgroundColor: theme.colors.cardBorder,
+    padding: 3, justifyContent: 'center',
+  },
+  toggleSwitchOn: { backgroundColor: theme.colors.accent },
+  toggleKnob: {
+    width: 20, height: 20, borderRadius: 10,
+    backgroundColor: '#fff',
+  },
+  toggleKnobOn: { alignSelf: 'flex-end' },
 });

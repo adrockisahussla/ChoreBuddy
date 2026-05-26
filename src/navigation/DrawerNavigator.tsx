@@ -47,7 +47,9 @@ function CustomDrawerContent(props: any) {
       confirmDestructive: true,
     });
     if (!ok) return;
-    authService.signOut().catch(e => Alert.alert('Error', String(e)));
+    authService
+      .signOut({ cancelAlarms: !!userDoc?.cancelAlarmsOnSignOut })
+      .catch(e => Alert.alert('Error', String(e)));
   };
 
   const goRoute = (route: string) => {

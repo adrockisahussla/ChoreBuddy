@@ -159,4 +159,9 @@ export interface User {
    *  fulfillment, decremented by the firewall agent (Phase 2) or
    *  by manual manager actions (Phase 1). */
   minutesRemaining?: number;
+  /** When true, signing out cancels every scheduled Notifee alarm
+   *  (reminders + chore-due) so they don't ring under another user's
+   *  session on the same phone. Default off — flip on in Settings if
+   *  the device is shared. */
+  cancelAlarmsOnSignOut?: boolean;
 }
