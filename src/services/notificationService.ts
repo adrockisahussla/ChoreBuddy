@@ -61,6 +61,35 @@ export async function notifyChoreAssigned(opts: {
 }
 
 /**
+ * Display a foreground notification telling a kid their chore was
+ * rejected, with the parent's note inline. Used by useRejectedChoreNotifier.
+ */
+export async function notifyChoreRejected(opts: {
+  choreId: string;
+  choreTitle: string;
+  rejectionNote: string;
+  assignerName?: string;
+}): Promise<void> {
+  await ensureChannel();
+  const body = opts.rejectionNote
+    ? `${opts.assignerName || 'Manager'}: ${opts.rejectionNote}`
+    : opts.assignerName
+      ? `Rejected by ${opts.assignerName}`
+      : 'Take another look and re-submit';
+  await notifee.displayNotification({
+    id: `chore-rejected-${opts.choreId}`,
+    title: `✗ "${opts.choreTitle}" rejected`,
+    body,
+    android: {
+      channelId: CHANNEL_ID,
+      importance: AndroidImportance.HIGH,
+      pressAction: { id: 'default' },
+      smallIcon: 'ic_launcher',
+    },
+  });
+}
+
+/**
  * Display a foreground notification telling a kid that their reward
  * claim was approved (with minutes credited) or denied. Used by
  * useClaimResolvedNotifier.

@@ -227,9 +227,14 @@ export default function BuddyRewardsScreen({ route, navigation }: any) {
                   <RNText style={[s.statusPill, isApproved ? s.statusApproved : s.statusDenied]}>
                     {isApproved ? '✓ Fulfilled' : '✕ Denied'}
                   </RNText>
-                  <TouchableOpacity style={s.pastDelBtn} onPress={onDeletePast} hitSlop={10}>
-                    <RNText style={{ fontSize: 14 }}>🗑</RNText>
-                  </TouchableOpacity>
+                  {/* Only denied claims can be deleted — deleting an
+                      approved claim would refund the kid's spent points
+                      because the wallet math is derived live. */}
+                  {!isApproved && (
+                    <TouchableOpacity style={s.pastDelBtn} onPress={onDeletePast} hitSlop={10}>
+                      <RNText style={{ fontSize: 14 }}>🗑</RNText>
+                    </TouchableOpacity>
+                  )}
                 </Card>
               );
             })}

@@ -20,9 +20,11 @@ export default function BuddyProfileScreen({ route, navigation }: any) {
 
   const my = chores.filter(c => c.assignedTo === buddyUid);
   const pts = buddyPoints(chores, rewardClaims, buddyUid);
-  // Total = todo + pending + approved + rejected (all active chore states).
+  // Total = everything outstanding. Collected approvals are banked and
+  // fall off the count so kid + manager see consistent numbers.
   const myChores = my.filter(c =>
-    c.status === 'todo' || c.status === 'pending' || c.status === 'approved' || c.status === 'rejected',
+    c.status === 'todo' || c.status === 'pending' || c.status === 'rejected' ||
+    (c.status === 'approved' && !c.collectedAt),
   ).length;
   const myReadyToCollect = my.filter(c => c.status === 'approved' && !c.collectedAt).length;
   const myApprovals = my.filter(c => c.status === 'pending').length;

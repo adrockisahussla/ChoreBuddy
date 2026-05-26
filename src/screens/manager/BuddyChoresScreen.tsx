@@ -156,6 +156,7 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
                   rejectionNote: '',
                   notifiedAssigner: false,
                   notifiedAssignee: false,
+                  notifiedRejection: false,
                 });
                 setTab('pending');
                 if (Platform.OS === 'android') {
@@ -205,11 +206,11 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
                 <TouchableOpacity style={s.reject} onPress={() => openReject(c.id)}>
                   <RNText style={s.iconText}>✕</RNText>
                 </TouchableOpacity>
-              ) : (
+              ) : (c.status === 'todo' || c.status === 'rejected') ? (
                 <Pressable style={s.delBtn} onPress={() => onDelete(c)} hitSlop={10}>
                   <RNText style={{ fontSize: 14 }}>🗑</RNText>
                 </Pressable>
-              )}
+              ) : null}
             </View>
           );
         })}

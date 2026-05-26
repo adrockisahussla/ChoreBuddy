@@ -18,7 +18,7 @@ export const chorePoints = (c: Pick<Chore, 'points' | 'recurrence'> | null | und
   Number.isFinite(c?.points as number) ? (c!.points as number) : (POINTS_PER[c?.recurrence as Recurrence] || 10);
 
 export const isOverdue = (c: Pick<Chore, 'dueDate' | 'status'> | null | undefined): boolean =>
-  !!c?.dueDate && c.dueDate < Date.now() && c.status !== 'approved' && c.status !== 'pending';
+  !!c?.dueDate && c.dueDate < Date.now() && c.status === 'todo';
 
 /**
  * Canonical points breakdown for one buddy. Used by every manager-side

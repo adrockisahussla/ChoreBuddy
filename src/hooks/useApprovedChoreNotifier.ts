@@ -37,10 +37,10 @@ export function useApprovedChoreNotifier(): void {
       const pts = chorePoints(chore);
       celebrate({
         emoji: '🎉',
-        headline: 'CHORE APPROVED!',
+        headline: 'APPROVED — GO COLLECT!',
         subtitle: chore.title,
         count: pts,
-        countLabel: pts === 1 ? 'POINT' : 'POINTS',
+        countLabel: pts === 1 ? 'PT WAITING' : 'PTS WAITING',
         dedupeKey: `approved-${chore.id}`,
       });
       notifyChoreApproved({

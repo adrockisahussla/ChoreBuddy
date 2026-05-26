@@ -39,6 +39,9 @@ export interface Chore {
   /** When the assignee tapped "Collect" to bank their points. Only
    *  collected approvals count toward the spendable points balance. */
   collectedAt?: number;
+  /** True once the assignee has been notified about a rejection. Cleared
+   *  by submit() so re-rejection after re-submission notifies again. */
+  notifiedRejection?: boolean;
 }
 
 /** Per-kid screen-time grant template. Manager curates this catalog;

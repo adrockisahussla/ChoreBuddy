@@ -43,7 +43,19 @@ export default function HomeScreen({ navigation }: any) {
 
   const events: { ts: number; icon: string; text: string }[] = [];
   chores.forEach(c => {
-    if (c.completedAt && c.status === 'approved') events.push({ ts: c.completedAt, icon: '✓', text: `${buddyLabel(c.assignedTo, buddies)} earned +${chorePoints(c)}pts for "${c.title}"` });
+    if (c.status === 'approved' && c.collectedAt) {
+      events.push({
+        ts: c.collectedAt,
+        icon: '🪙',
+        text: `${buddyLabel(c.assignedTo, buddies)} banked +${chorePoints(c)}pts from "${c.title}"`,
+      });
+    } else if (c.status === 'approved' && c.completedAt) {
+      events.push({
+        ts: c.completedAt,
+        icon: '✓',
+        text: `Approved "${c.title}" — ${buddyLabel(c.assignedTo, buddies)} can collect +${chorePoints(c)}pts`,
+      });
+    }
     if (c.status === 'pending') events.push({ ts: c.createdAt || 0, icon: '⏳', text: `${buddyLabel(c.assignedTo, buddies)} marked "${c.title}" done` });
     if (c.createdAt && c.status === 'todo') events.push({ ts: c.createdAt, icon: '+', text: `New chore "${c.title}" → ${buddyLabel(c.assignedTo, buddies)}` });
   });
@@ -71,14 +83,28 @@ export default function HomeScreen({ navigation }: any) {
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
         {(() => {
           const statsFor = (uid: string) => {
-            // Total = every active chore (todo + pending + approved). Rejected
-            // chores re-appear as todo so they're already counted; we exclude
-            // deleted (the doc is gone).
+            // Total chores = everything not yet collected (still meaningful
+            // from a "what's outstanding" perspective). Collected approvals
+            // are banked and considered done-done; they fall off the count.
             const choreCount = chores.filter(c =>
               c.assignedTo === uid &&
-              (c.status === 'todo' || c.status === 'pending' || c.status === 'approved' || c.status === 'rejected'),
+              (
+                c.status === 'todo' ||
+                c.status === 'pending' ||
+                c.status === 'rejected' ||
+                (c.status === 'approved' && !c.collectedAt)
+              ),
             ).length;
-            const approvals = chores.filter(c => c.assignedTo === uid && c.status === 'pending').length;
+            // Chores I assigned that are awaiting my approval — only
+            // meaningful for the "me" row but cheap to compute per uid.
+            const approvalsIOwe = chores.filter(c =>
+              c.createdBy === myUid && c.status === 'pending',
+            ).length;
+            // For non-me rows: chores this kid submitted that are pending
+            // (i.e., manager owes approval). For me-row: shows what I owe.
+            const approvals = uid === myUid
+              ? approvalsIOwe
+              : chores.filter(c => c.assignedTo === uid && c.status === 'pending').length;
             // Uncollected approvals — points kid hasn't tapped Collect on yet.
             const readyToCollect = chores.filter(c =>
               c.assignedTo === uid && c.status === 'approved' && !c.collectedAt,

@@ -100,6 +100,7 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
         rejectionNote: '',
         notifiedAssigner: false,
         notifiedAssignee: false,
+        notifiedRejection: false,
       });
       setTab('waiting');
       if (Platform.OS === 'android') {
