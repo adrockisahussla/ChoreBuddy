@@ -1,27 +1,34 @@
 import React, { useEffect, useState } from 'react';
 import { View, ScrollView, TouchableOpacity, Platform, ToastAndroid, StyleSheet, Text as RNText } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
-import { Header, Screen, Card, Text, SCREEN_BOTTOM_PAD } from '../../components';
+import { Header, Screen, Card, Avatar, Text, useConfirm, SCREEN_BOTTOM_PAD } from '../../components';
+import { useFamilyMembers } from '../../hooks/useFamilyMembers';
 import { theme } from '../../theme';
 
 interface Machine {
   id: string;
   machineName?: string;
+  kidId?: string;
   command?: 'shutoff' | 'allow';
   timestamp?: number;
   lastSeenAt?: number;
 }
 
 /**
- * FirewallScreen — manager-only debug UI. Lists every Windows agent
- * that has heartbeated into the `firewallControl` Firestore collection
- * and exposes SHUTOFF / ALLOW commands per machine. Mirrors the
- * FirewallDebug component from manager-app.html.
+ * FirewallScreen — manager-only. Lists every buddy (role === 'buddy')
+ * with a toggle for their PC's game access. Each buddy can have zero,
+ * one, or many machines paired (firewallControl docs keyed by
+ * machineId; agent writes kidId on each one). Any orphan/unpaired
+ * machines surface under an "Unpaired machines" section so the manager
+ * can still control them or know they exist.
  */
 export default function FirewallScreen({ navigation }: any) {
+  const { members } = useFamilyMembers();
+  const buddies = members.filter(m => m.role === 'buddy');
   const [machines, setMachines] = useState<Machine[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const confirm = useConfirm();
 
   useEffect(() => {
     const unsub = firestore()
@@ -36,8 +43,12 @@ export default function FirewallScreen({ navigation }: any) {
     return () => unsub();
   }, []);
 
+  const machinesForKid = (uid: string) => machines.filter(m => m.kidId === uid);
+  const unpaired = machines.filter(m => !m.kidId);
+
   const sendCommand = async (machine: Machine, cmd: 'shutoff' | 'allow') => {
-    setBusy(`${machine.id}:${cmd}`);
+    const key = `${machine.id}:${cmd}`;
+    setBusy(key);
     try {
       await firestore().collection('firewallControl').doc(machine.id).set(
         {
@@ -45,13 +56,16 @@ export default function FirewallScreen({ navigation }: any) {
           timestamp: Date.now(),
           setBy: 'manager',
           machineName: machine.machineName || machine.id,
+          ...(machine.kidId ? { kidId: machine.kidId } : {}),
           lastSeenAt: machine.lastSeenAt || Date.now(),
         },
         { merge: true },
       );
       if (Platform.OS === 'android') {
         ToastAndroid.show(
-          `${cmd === 'shutoff' ? '🚫' : '✅'} Sent ${cmd.toUpperCase()} to ${machine.machineName || machine.id}`,
+          cmd === 'shutoff'
+            ? `🚫 Blocked games on ${machine.machineName || machine.id}`
+            : `✅ Allowed games on ${machine.machineName || machine.id}`,
           ToastAndroid.SHORT,
         );
       }
@@ -73,80 +87,136 @@ export default function FirewallScreen({ navigation }: any) {
     return new Date(ts).toLocaleString();
   };
 
+  const MachineToggle = ({ m, kidName }: { m: Machine; kidName?: string }) => {
+    const blocked = m.command === 'shutoff';
+    const target: 'shutoff' | 'allow' = blocked ? 'allow' : 'shutoff';
+    const isBusy = busy === `${m.id}:${target}`;
+    const onTap = async () => {
+      const who = kidName || m.machineName || m.id;
+      const ok = await confirm({
+        title: target === 'shutoff' ? `Block games on ${who}?` : `Allow games on ${who}?`,
+        message: target === 'shutoff'
+          ? 'All configured apps and games will be killed and blocked from launching.'
+          : 'All blocks lift. Games + browsers can launch again until you re-block.',
+        confirmLabel: target === 'shutoff' ? 'Block' : 'Allow',
+        confirmDestructive: target === 'allow',
+      });
+      if (!ok) return;
+      sendCommand(m, target);
+    };
+    return (
+      <View style={s.machineRow}>
+        <View style={{ flex: 1 }}>
+          <Text variant="h3" style={{ fontSize: 14 }}>💻 {m.machineName || m.id}</Text>
+          <Text variant="tiny" style={{ marginTop: 2, fontSize: 11, opacity: 0.7 }}>
+            {blocked ? '🚫 Games blocked' : '✅ Games allowed'} · last seen {fmtTime(m.lastSeenAt)}
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={[s.toggle, blocked ? s.toggleOff : s.toggleOn, isBusy && s.toggleBusy]}
+          disabled={isBusy}
+          onPress={onTap}
+          activeOpacity={0.7}
+        >
+          <View style={[s.toggleKnob, blocked ? s.toggleKnobOff : s.toggleKnobOn]} />
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   return (
     <Screen contentStyle={{ padding: 0 }}>
       <Header title="Firewall" onMenuPress={() => navigation?.openDrawer?.()} />
       <ScrollView contentContainerStyle={{ padding: theme.spacing.lg, paddingBottom: SCREEN_BOTTOM_PAD }}>
         <Card style={{ marginBottom: 12, gap: 6 }}>
-          <Text variant="h3" style={{ fontSize: 14, color: theme.colors.accent }}>⚠ Debug controls</Text>
+          <Text variant="h3" style={{ fontSize: 14, color: theme.colors.accent }}>🎮 Game access</Text>
           <Text variant="tiny" style={{ fontSize: 12, opacity: 0.8, lineHeight: 18 }}>
-            The firewall agent on each PC polls every 3 seconds for commands.{'\n'}
-            SHUTOFF blocks every app where "Remote shutoff" is checked. Game launchers with "Kill related games" also kill all installed games.
+            Toggle each buddy's PC. Off = games blocked instantly (process kill + firewall block).
+            On = games allowed.
           </Text>
         </Card>
 
-        {loading && (
-          <Text variant="empty">Loading…</Text>
-        )}
+        {loading && <Text variant="empty">Loading…</Text>}
 
-        {!loading && machines.length === 0 && (
-          <Card style={{ padding: 32, alignItems: 'center', gap: 8 }}>
-            <RNText style={{ fontSize: 48 }}>📭</RNText>
-            <Text variant="h3" style={{ fontSize: 16, textAlign: 'center' }}>No machines registered yet</Text>
-            <Text variant="tiny" style={{ fontSize: 12, textAlign: 'center', opacity: 0.7, lineHeight: 18 }}>
-              Launch the ChoreBuddy firewall agent on a PC as administrator.{'\n'}
-              It will check in here within a minute.
+        {!loading && buddies.length === 0 && (
+          <Card style={{ padding: 28, alignItems: 'center', gap: 6 }}>
+            <RNText style={{ fontSize: 36 }}>🧒</RNText>
+            <Text variant="h3" style={{ fontSize: 15, textAlign: 'center' }}>No buddies in this family</Text>
+            <Text variant="tiny" style={{ fontSize: 12, textAlign: 'center', opacity: 0.7 }}>
+              Add a buddy first, then pair their PC with the agent.
             </Text>
           </Card>
         )}
 
-        {!loading && machines.map(m => {
-          const cmdColor = m.command === 'shutoff' ? theme.colors.danger : '#22c55e';
+        {!loading && buddies.map(b => {
+          const mine = machinesForKid(b.uid);
           return (
-            <Card key={m.id} style={{ marginBottom: 12, gap: 8 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text variant="h3" style={{ fontSize: 15 }}>💻 {m.machineName || m.id}</Text>
-                <Text variant="tiny" style={{ fontSize: 11, opacity: 0.7 }}>last seen: {fmtTime(m.lastSeenAt)}</Text>
+            <Card key={b.uid} style={s.buddyCard}>
+              <View style={s.buddyHeader}>
+                <Avatar emoji={b.avatar || '👤'} accent={b.accent} size="md" />
+                <View style={{ flex: 1 }}>
+                  <Text variant="h3" style={{ fontSize: 16 }}>{b.displayName}</Text>
+                  <Text variant="tiny" style={{ marginTop: 2, fontSize: 11 }}>
+                    {mine.length === 0
+                      ? 'No PC paired yet'
+                      : `${mine.length} ${mine.length === 1 ? 'PC' : 'PCs'} paired`}
+                  </Text>
+                </View>
               </View>
-              {!!m.command && (
-                <Text variant="tiny" style={{ fontSize: 11, color: cmdColor, fontWeight: '700' }}>
-                  current: {m.command.toUpperCase()} ({fmtTime(m.timestamp)})
+              {mine.length === 0 ? (
+                <Text variant="tiny" style={{ fontSize: 11, opacity: 0.7, marginTop: 8 }}>
+                  Launch the ChoreBuddy agent on this kid's PC and pair it with their uid.
                 </Text>
+              ) : (
+                mine.map(m => <MachineToggle key={m.id} m={m} kidName={b.displayName} />)
               )}
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TouchableOpacity
-                  style={[s.btn, s.btnShutoff, busy === `${m.id}:shutoff` && s.btnBusy]}
-                  disabled={busy === `${m.id}:shutoff`}
-                  onPress={() => sendCommand(m, 'shutoff')}
-                >
-                  <RNText style={s.btnText}>🚫 SHUTOFF</RNText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[s.btn, s.btnAllow, busy === `${m.id}:allow` && s.btnBusy]}
-                  disabled={busy === `${m.id}:allow`}
-                  onPress={() => sendCommand(m, 'allow')}
-                >
-                  <RNText style={s.btnText}>✅ ALLOW</RNText>
-                </TouchableOpacity>
-              </View>
             </Card>
           );
         })}
+
+        {!loading && unpaired.length > 0 && (
+          <>
+            <Text variant="sectionLabel" style={{ marginTop: 16 }}>Unpaired machines</Text>
+            <Card style={{ marginBottom: 8 }}>
+              <Text variant="tiny" style={{ fontSize: 11, opacity: 0.7 }}>
+                These agents heartbeated in without a kidId. Run the agent's setup wizard to bind them to a buddy.
+              </Text>
+            </Card>
+            {unpaired.map(m => (
+              <Card key={m.id} style={{ marginBottom: 6 }}>
+                <MachineToggle m={m} />
+              </Card>
+            ))}
+          </>
+        )}
       </ScrollView>
     </Screen>
   );
 }
 
 const s = StyleSheet.create({
-  btn: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+  buddyCard: { marginBottom: 12, gap: 6 },
+  buddyHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  machineRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 10, paddingHorizontal: 4,
+    borderTopWidth: 1, borderTopColor: theme.colors.cardBorder,
+    marginTop: 4,
   },
-  btnShutoff: { backgroundColor: '#dc2626' },
-  btnAllow: { backgroundColor: '#22c55e' },
-  btnBusy: { opacity: 0.5 },
-  btnText: { color: '#fff', fontWeight: '900', fontSize: 14, letterSpacing: 1 },
+
+  toggle: {
+    width: 56, height: 32, borderRadius: 16,
+    padding: 3, justifyContent: 'center',
+  },
+  toggleOn: { backgroundColor: theme.colors.success },
+  toggleOff: { backgroundColor: theme.colors.danger },
+  toggleBusy: { opacity: 0.5 },
+  toggleKnob: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: '#fff',
+    elevation: 2,
+    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 2, shadowOffset: { width: 0, height: 1 },
+  },
+  toggleKnobOn: { alignSelf: 'flex-end' },
+  toggleKnobOff: { alignSelf: 'flex-start' },
 });
