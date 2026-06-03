@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, ScrollView, TouchableOpacity, Platform, ToastAndroid, StyleSheet, Text as RNText } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
+import auth from '@react-native-firebase/auth';
 import { Header, Screen, Card, Avatar, Text, useConfirm, SCREEN_BOTTOM_PAD } from '../../components';
 import { useFamilyMembers } from '../../hooks/useFamilyMembers';
 import { theme } from '../../theme';
@@ -12,6 +13,28 @@ interface Machine {
   command?: 'shutoff' | 'allow';
   timestamp?: number;
   lastSeenAt?: number;
+}
+
+const RTDB_URL = 'https://chorebuddy-67a5f-default-rtdb.firebaseio.com';
+
+/**
+ * Push a command to Realtime Database — this is the channel the PC agent
+ * actually listens on (one held-open stream, instant, no polling, no
+ * Firestore read-quota burn). Authenticated with the manager's Firebase
+ * token via a plain REST PUT, so the "only the manager can send" rule is
+ * satisfied without adding the RTDB native module.
+ */
+async function pushRtdbCommand(machineId: string, cmd: 'shutoff' | 'allow', ts: number) {
+  const user = auth().currentUser;
+  if (!user) throw new Error('Not signed in');
+  const token = await user.getIdToken();
+  const url = `${RTDB_URL}/firewallControl/${encodeURIComponent(machineId)}/control.json?auth=${token}`;
+  const resp = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ command: cmd, timestamp: ts }),
+  });
+  if (!resp.ok) throw new Error(`RTDB ${resp.status}: ${await resp.text()}`);
 }
 
 /**
@@ -49,18 +72,22 @@ export default function FirewallScreen({ navigation }: any) {
   const sendCommand = async (machine: Machine, cmd: 'shutoff' | 'allow') => {
     const key = `${machine.id}:${cmd}`;
     setBusy(key);
+    const ts = Date.now();
     try {
+      // 1. Firestore — keeps this screen's current-state badge in sync.
       await firestore().collection('firewallControl').doc(machine.id).set(
         {
           command: cmd,
-          timestamp: Date.now(),
+          timestamp: ts,
           setBy: 'manager',
           machineName: machine.machineName || machine.id,
           ...(machine.kidId ? { kidId: machine.kidId } : {}),
-          lastSeenAt: machine.lastSeenAt || Date.now(),
+          lastSeenAt: machine.lastSeenAt || ts,
         },
         { merge: true },
       );
+      // 2. RTDB push — the channel the agent listens on (instant delivery).
+      await pushRtdbCommand(machine.id, cmd, ts);
       if (Platform.OS === 'android') {
         ToastAndroid.show(
           cmd === 'shutoff'
