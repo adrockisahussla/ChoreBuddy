@@ -110,7 +110,32 @@
   }
   .no-token { color: var(--muted); font-size: 14px; }
   .pc-hint { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
+
+  .join-card {
+    margin: 4px 0 18px; padding: 18px 16px; text-align: left;
+    background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 16px;
+  }
+  .join-title { font-weight: 900; font-size: 15px; color: #15803d; margin-bottom: 4px; }
+  .join-sub { font-size: 13px; color: #166534; line-height: 1.5; margin-bottom: 12px; }
+  .join-status { font-size: 13px; color: #525261; margin: 4px 0 10px; line-height: 1.5; min-height: 0; }
+  .join-done { text-align: center; }
+  .join-done .em { font-size: 42px; }
 </style>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+  firebase.initializeApp({
+    apiKey: "AIzaSyCn5Vj7oFm-76PsL4vRWfmbGjqEboIhl1M",
+    authDomain: "chorebuddy-67a5f.firebaseapp.com",
+    projectId: "chorebuddy-67a5f",
+    storageBucket: "chorebuddy-67a5f.firebasestorage.app",
+    messagingSenderId: "858139388832",
+    appId: "1:858139388832:web:0f5fcd224ba29b9f5e92c5"
+  });
+  window.fbAuth = firebase.auth();
+  window.fbDb = firebase.firestore();
+</script>
 </head>
 <body>
   <div class="card">
@@ -122,6 +147,20 @@
       <div class="token-label">Your invite code</div>
       <div class="token" id="token">—</div>
       <div class="token-hint">You'll type this into the app after installing.</div>
+    </div>
+
+    <div class="join-card" id="joinCard" style="display:none;">
+      <div class="join-title">📱 iPhone, or no app? Join right here</div>
+      <div class="join-sub">No download needed — register on this page and your family manager can set up your devices.</div>
+      <div class="join-status" id="joinStatus"></div>
+      <a class="btn" id="googleBtn" href="javascript:void(0)" style="margin-top:0;">Continue with Google</a>
+      <a class="btn secondary" id="emailLinkBtn" href="javascript:void(0)">Email me a sign-in link</a>
+    </div>
+
+    <div class="join-card join-done" id="joinDone" style="display:none;">
+      <div class="em">🎉</div>
+      <div class="join-title" style="text-align:center;">You're in!</div>
+      <div class="join-sub" style="text-align:center; margin-bottom:0;">You've joined <b class="fam">your family</b>. Your family manager can now set up your PC — nothing else to do here.</div>
     </div>
 
     <div class="step">
@@ -204,6 +243,100 @@
     document.getElementById("tokenBlock").innerHTML =
       '<div class="no-token">No invite code in the link. Ask the person who invited you to send a new one.</div>';
   }
+</script>
+
+<script>
+  // ---- Web join: register a buddy entirely in the browser (no app) ----
+  (function () {
+    var auth = window.fbAuth, db = window.fbDb;
+    var p = new URLSearchParams(location.search);
+    var joinToken = (p.get('invite') || p.get('token') || '').toUpperCase();
+    var emailParam = (p.get('email') || '').toLowerCase();
+
+    var card = document.getElementById('joinCard');
+    var statusEl = document.getElementById('joinStatus');
+    var doneEl = document.getElementById('joinDone');
+    var googleBtn = document.getElementById('googleBtn');
+    var emailBtn = document.getElementById('emailLinkBtn');
+
+    if (!joinToken) return;            // nothing to join — leave install buttons only
+    card.style.display = 'block';
+
+    function setStatus(m) { statusEl.textContent = m || ''; }
+    function showDone(fam) {
+      card.style.display = 'none';
+      doneEl.querySelector('.fam').textContent = fam || 'your family';
+      doneEl.style.display = 'block';
+    }
+
+    async function runJoin(user) {
+      try {
+        setStatus('Finishing up…');
+        var snap = await db.collection('invites')
+          .where('token', '==', joinToken).where('status', '==', 'pending').limit(1).get();
+        if (snap.empty) { setStatus('This invite code is invalid or already used — ask for a new one.'); return; }
+        var inv = snap.docs[0], d = inv.data();
+        var userDoc = {
+          uid: user.uid,
+          familyId: d.familyId,
+          role: d.role || 'buddy',
+          displayName: d.suggestedName || user.displayName || 'Buddy',
+          email: user.email || emailParam || null,
+          createdAt: Date.now()
+        };
+        if (d.avatar) userDoc.avatar = d.avatar;
+        await db.collection('users').doc(user.uid).set(userDoc, { merge: true });
+        await inv.ref.update({ status: 'accepted', acceptedAt: Date.now(), acceptedByUid: user.uid });
+        showDone(d.suggestedName ? (d.suggestedName + "'s family") : 'your family');
+      } catch (e) {
+        if (e && e.code === 'permission-denied') {
+          setStatus('Please sign in with the email this invite was sent to' + (emailParam ? (' (' + emailParam + ')') : '') + '.');
+        } else {
+          setStatus('Could not join: ' + ((e && e.message) ? e.message : e));
+        }
+      }
+    }
+
+    // 1) Returning from an email sign-in link?
+    if (auth.isSignInWithEmailLink(location.href)) {
+      var em = emailParam || window.localStorage.getItem('cbEmail') || '';
+      if (!em) em = (window.prompt('Confirm your email to finish signing in') || '').toLowerCase();
+      setStatus('Signing you in…');
+      auth.signInWithEmailLink(em, location.href)
+        .then(function (res) { runJoin(res.user); })
+        .catch(function (e) { setStatus('Sign-in link problem: ' + (e.message || e)); });
+    }
+
+    // 2) Returning from a Google redirect?
+    auth.getRedirectResult().then(function (res) { if (res && res.user) runJoin(res.user); }).catch(function () {});
+
+    // 3) Buttons
+    googleBtn.addEventListener('click', function () {
+      var prov = new firebase.auth.GoogleAuthProvider();
+      setStatus('Opening Google…');
+      auth.signInWithPopup(prov)
+        .then(function (res) { runJoin(res.user); })
+        .catch(function (e) {
+          if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/cancelled-popup-request' ||
+                    e.code === 'auth/operation-not-supported-in-this-environment')) {
+            auth.signInWithRedirect(prov);
+          } else { setStatus('Google sign-in failed: ' + (e.message || e)); }
+        });
+    });
+
+    emailBtn.addEventListener('click', function () {
+      var em = emailParam || (window.prompt('Your email') || '').toLowerCase();
+      if (!em) return;
+      var url = location.origin + location.pathname + '?invite=' + encodeURIComponent(joinToken) + '&email=' + encodeURIComponent(em);
+      setStatus('Sending a sign-in link to ' + em + '…');
+      auth.sendSignInLinkToEmail(em, { url: url, handleCodeInApp: true })
+        .then(function () {
+          window.localStorage.setItem('cbEmail', em);
+          setStatus('✅ Check ' + em + ' on this device and tap the link to finish joining.');
+        })
+        .catch(function (e) { setStatus('Could not send link: ' + (e.message || e)); });
+    });
+  })();
 </script>
 </body>
 </html>
