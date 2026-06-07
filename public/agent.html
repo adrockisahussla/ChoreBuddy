@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ChoreBuddy Agent for Windows</title>
+<style>
+  :root {
+    --bg: linear-gradient(160deg, #1e3a8a 0%, #6366f1 60%, #f6339a 100%);
+    --card: #ffffff;
+    --text: #111827;
+    --muted: #6b7280;
+    --accent: #6366f1;
+    --accent-2: #f6339a;
+    --note-bg: #f3f4f6;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  body { display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .card {
+    background: var(--card);
+    border-radius: 24px;
+    padding: 32px 28px;
+    max-width: 520px;
+    width: 100%;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
+  }
+  .logo { font-size: 56px; line-height: 1; margin: 0 0 12px; text-align: center; }
+  h1 {
+    font-size: 26px; font-weight: 900; margin: 0 0 6px;
+    letter-spacing: -0.4px; text-align: center;
+  }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 24px; line-height: 1.5; text-align: center; }
+
+  .download-btn {
+    display: block;
+    width: 100%;
+    padding: 18px 20px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #fff;
+    font-weight: 900;
+    font-size: 17px;
+    text-align: center;
+    text-decoration: none;
+    box-shadow: 0 8px 24px rgba(99, 102, 241, 0.35);
+    transition: transform 120ms ease;
+    margin-bottom: 8px;
+  }
+  .download-btn:hover { transform: translateY(-1px); }
+  .download-sub {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    margin: 0 0 28px;
+  }
+
+  h2 {
+    font-size: 14px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--accent);
+    margin: 24px 0 12px;
+  }
+  ol, ul {
+    padding-left: 22px;
+    margin: 0 0 16px;
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.7;
+  }
+  ol li, ul li { margin-bottom: 4px; }
+  code {
+    background: var(--note-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    color: var(--accent);
+  }
+
+  .note {
+    background: var(--note-bg);
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--muted);
+    margin-top: 20px;
+  }
+  .note strong { color: var(--text); }
+
+  footer {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 12px;
+    margin-top: 18px;
+  }
+  footer a { color: #fff; text-decoration: underline; }
+</style>
+</head>
+<body>
+  <div>
+  <div class="card">
+    <div class="logo">🛡️</div>
+    <h1>ChoreBuddy Agent</h1>
+    <p class="sub">
+      Installs as a Windows service that lets you block games and browsers on your kid's PC
+      from the ChoreBuddy app on your phone.
+    </p>
+
+    <a class="download-btn"
+       href="https://github.com/adrockisahussla/ChoreBuddy-Agent/releases/latest/download/ChoreBuddyAgent.zip">
+      ⬇  Download for Windows
+    </a>
+    <p class="download-sub">~30 MB · Windows 10 / 11 · 64-bit</p>
+
+    <h2>Install</h2>
+    <ol>
+      <li>Unzip the download anywhere (Desktop is fine).</li>
+      <li>Right-click <code>setup.cmd</code> → <strong>Run as administrator</strong>.</li>
+      <li>In the wizard: sign in with your parent Google account, pick which kid the PC is for, then Install.</li>
+      <li>That's it. The agent runs in the background and watches for commands from your phone.</li>
+    </ol>
+
+    <h2>Control it</h2>
+    <p style="font-size:14px;line-height:1.6;margin:0 0 12px">
+      Open the ChoreBuddy app → drawer → <strong>Firewall</strong> → toggle the kid's PC on/off.
+      When off, games + browsers you configured are killed and blocked instantly; trying to launch
+      one shows a full-screen "Game time suspended" message.
+    </p>
+
+    <h2>Updates</h2>
+    <p style="font-size:14px;line-height:1.6;margin:0 0 12px">
+      Auto-updates in the background. The service checks for a new release once an hour and swaps
+      itself in within ~5 seconds. No prompts, no kid-visible UI.
+    </p>
+
+    <div class="note">
+      <strong>Need help?</strong> The wizard logs to <code>C:\ProgramData\ChoreBuddy\service.log</code>.
+      Crashes go to <code>crash.log</code> in the same folder. Most "won't connect" issues come from
+      Windows Firewall blocking the agent's outbound HTTPS — allow it through if your AV asks.
+    </div>
+  </div>
+  <footer>
+    <a href="/invite">← Back to ChoreBuddy</a>
+  </footer>
+  </div>
+</body>
+</html>
