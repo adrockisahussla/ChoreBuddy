@@ -24,7 +24,11 @@ const RTDB_URL = 'https://chorebuddy-67a5f-default-rtdb.firebaseio.com';
  * token via a plain REST PUT, so the "only the manager can send" rule is
  * satisfied without adding the RTDB native module.
  */
-async function pushRtdbCommand(machineId: string, cmd: 'shutoff' | 'allow', ts: number) {
+async function pushRtdbCommand(
+  machineId: string,
+  cmd: 'shutoff' | 'allow' | 'update',
+  ts: number,
+) {
   const user = auth().currentUser;
   if (!user) throw new Error('Not signed in');
   const token = await user.getIdToken();
@@ -68,6 +72,37 @@ export default function FirewallScreen({ navigation }: any) {
 
   const machinesForKid = (uid: string) => machines.filter(m => m.kidId === uid);
   const unpaired = machines.filter(m => !m.kidId);
+
+  const updateAllAgents = async () => {
+    if (machines.length === 0) return;
+    const ok = await confirm({
+      title: `Update ${machines.length} agent${machines.length === 1 ? '' : 's'}?`,
+      message: 'Every paired PC will check GitHub for a newer agent build and swap it in within a few seconds. Service restarts automatically. Kids see nothing.',
+      confirmLabel: 'Update all',
+    });
+    if (!ok) return;
+    setBusy('update-all');
+    const ts = Date.now();
+    let okCount = 0;
+    let failCount = 0;
+    for (const m of machines) {
+      try {
+        await pushRtdbCommand(m.id, 'update', ts);
+        okCount++;
+      } catch {
+        failCount++;
+      }
+    }
+    setBusy(null);
+    if (Platform.OS === 'android') {
+      ToastAndroid.show(
+        failCount === 0
+          ? `🚀 Update triggered on ${okCount} PC${okCount === 1 ? '' : 's'}`
+          : `Triggered ${okCount}, failed ${failCount}`,
+        ToastAndroid.LONG,
+      );
+    }
+  };
 
   const sendCommand = async (machine: Machine, cmd: 'shutoff' | 'allow') => {
     const key = `${machine.id}:${cmd}`;
@@ -163,6 +198,19 @@ export default function FirewallScreen({ navigation }: any) {
           </Text>
         </Card>
 
+        {machines.length > 0 && (
+          <TouchableOpacity
+            style={[s.updateAllBtn, busy === 'update-all' && s.updateAllBtnBusy]}
+            disabled={busy === 'update-all'}
+            onPress={updateAllAgents}
+            activeOpacity={0.7}
+          >
+            <RNText style={s.updateAllText}>
+              {busy === 'update-all' ? '🚀 Sending…' : `🚀 Update all PCs (${machines.length})`}
+            </RNText>
+          </TouchableOpacity>
+        )}
+
         {loading && <Text variant="empty">Loading…</Text>}
 
         {!loading && buddies.length === 0 && (
@@ -245,5 +293,15 @@ const s = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 2, shadowOffset: { width: 0, height: 1 },
   },
   toggleKnobOn: { alignSelf: 'flex-end' },
+
+  updateAllBtn: {
+    backgroundColor: theme.colors.accent,
+    paddingVertical: 14,
+    borderRadius: theme.radius.lg,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  updateAllBtnBusy: { opacity: 0.6 },
+  updateAllText: { color: '#fff', fontWeight: '900', fontSize: 14, letterSpacing: 0.3 },
   toggleKnobOff: { alignSelf: 'flex-start' },
 });

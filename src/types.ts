@@ -168,3 +168,35 @@ export interface User {
    *  the device is shared. */
   cancelAlarmsOnSignOut?: boolean;
 }
+
+/** One weekday's gameplay window. Times are "HH:MM" 24h strings. */
+export interface DaySchedule {
+  enabled: boolean;
+  start: string;     // window opens, e.g. "16:00"
+  end: string;       // window closes, e.g. "18:00"
+  maxHours?: number; // max play hours allowed inside the window (0 = no cap)
+}
+
+/** A buddy's weekly GameWall schedule. Doc id === buddyUid. */
+export interface GameSchedule {
+  id: string;
+  buddyUid: string;
+  familyId: string;
+  /** Keyed mon,tue,wed,thu,fri,sat,sun. */
+  days: { [day: string]: DaySchedule };
+  updatedAt: number;
+}
+
+export const WEEK_DAYS: { key: string; label: string }[] = [
+  { key: 'mon', label: 'Mon' },
+  { key: 'tue', label: 'Tue' },
+  { key: 'wed', label: 'Wed' },
+  { key: 'thu', label: 'Thu' },
+  { key: 'fri', label: 'Fri' },
+  { key: 'sat', label: 'Sat' },
+  { key: 'sun', label: 'Sun' },
+];
+
+export function defaultDay(): DaySchedule {
+  return { enabled: false, start: '16:00', end: '18:00', maxHours: 2 };
+}

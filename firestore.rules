@@ -96,6 +96,14 @@ service cloud.firestore {
       allow delete: if inMyFamily(resource.data.familyId);
     }
 
+    // GameWall play schedules — one doc per buddy (id === buddyUid),
+    // scoped to the family. Managers create/edit; family members can read.
+    match /gameSchedules/{id} {
+      allow read: if inMyFamily(resource.data.familyId);
+      allow create: if inMyFamily(request.resource.data.familyId);
+      allow update, delete: if inMyFamily(resource.data.familyId);
+    }
+
     // Per-machine firewall control plane. Docs are keyed by machine id,
     // not family, so we can't gate by familyId. Managers in any family
     // can issue SHUTOFF/ALLOW commands; the Windows agents that poll

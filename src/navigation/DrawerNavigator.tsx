@@ -9,7 +9,7 @@ import ChorePoolScreen from '../screens/manager/ChorePoolScreen';
 import RewardPoolScreen from '../screens/manager/RewardPoolScreen';
 import RemindersScreen from '../screens/manager/RemindersScreen';
 import SettingsScreen from '../screens/manager/SettingsScreen';
-import FirewallScreen from '../screens/manager/FirewallScreen';
+import GameWallStack from './GameWallStack';
 import { theme } from '../theme';
 import { authService } from '../services/authService';
 import { useCurrentUser } from '../hooks/useCurrentUser';
@@ -27,7 +27,7 @@ const ITEMS: DrawerItem[] = [
   { route: 'ChorePool',   label: 'Chore Pool', icon: '⭐' },
   { route: 'RewardPool',  label: 'Reward Pool', icon: '🎁', managerOnly: true },
   { route: 'Reminders',   label: 'Reminders',  icon: '🔔' },
-  { route: 'Firewall',    label: 'Firewall',   icon: '🚫', managerOnly: true },
+  { route: 'GameWall',    label: 'GameWall',   icon: '🎮', managerOnly: true },
   { route: 'Settings',    label: 'Settings',   icon: '⚙️' },
 ];
 
@@ -54,7 +54,7 @@ function CustomDrawerContent(props: any) {
 
   const goRoute = (route: string) => {
     // Reset the route's stack to its first screen so revisiting always lands on the root
-    const rootScreen = route === 'Home' ? 'HomeRoot' : route === 'Buddies' ? 'BuddiesRoot' : undefined;
+    const rootScreen = route === 'Home' ? 'HomeRoot' : route === 'Buddies' ? 'BuddiesRoot' : route === 'GameWall' ? 'GameWallRoot' : undefined;
     props.navigation.dispatch(
       CommonActions.navigate({ name: route, params: { screen: rootScreen } as any })
     );
@@ -114,7 +114,7 @@ export default function DrawerNavigator() {
       )}
       <Drawer.Screen name="Reminders" component={RemindersScreen} options={{ title: 'Reminders' }} />
       {isManager && (
-        <Drawer.Screen name="Firewall" component={FirewallScreen} options={{ title: 'Firewall' }} />
+        <Drawer.Screen name="GameWall" component={GameWallStack} options={{ title: 'GameWall' }} />
       )}
       <Drawer.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
     </Drawer.Navigator>
