@@ -13,7 +13,11 @@ export interface Machine {
 }
 
 /** Push the command to RTDB (the channel the PC agent listens on) — instant. */
-async function pushRtdb(machineId: string, cmd: 'shutoff' | 'allow', ts: number) {
+async function pushRtdb(
+  machineId: string,
+  cmd: 'shutoff' | 'allow' | 'update',
+  ts: number,
+) {
   const u = auth().currentUser;
   if (!u) throw new Error('Not signed in');
   const token = await u.getIdToken();
@@ -37,6 +41,27 @@ export const firewallControlService = {
       ),
       () => cb([]),
     ),
+
+  /** Live list of ALL machines across the family — used by "Update all". */
+  subscribeAll: (cb: (m: Machine[]) => void) =>
+    firestore().collection('firewallControl').onSnapshot(
+      s => cb(s.docs.map(d => ({ id: d.id, ...(d.data() as any) } as Machine))),
+      () => cb([]),
+    ),
+
+  /** Fire the manager-triggered self-update on every paired PC. Agents
+   *  on v1.0.1+ recognize this and pull the newest release from GitHub
+   *  within seconds; older agents ignore it and pick up via their
+   *  hourly self-poll. */
+  updateAll: async (machines: Machine[]) => {
+    const ts = Date.now();
+    let ok = 0, fail = 0;
+    for (const m of machines) {
+      try { await pushRtdb(m.id, 'update', ts); ok++; }
+      catch { fail++; }
+    }
+    return { ok, fail };
+  },
 
   /** Instant manual override — writes Firestore (for the badge) + RTDB (agent). */
   send: async (machine: Machine, cmd: 'shutoff' | 'allow') => {
