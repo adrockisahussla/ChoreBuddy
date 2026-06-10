@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, Text as RNText, StyleSheet, ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../theme';
 
 interface Props {
@@ -18,13 +19,18 @@ interface Props {
  * `position: relative` View) so the absolute placement anchors correctly.
  */
 export default function FAB({ onPress, label = '+', bottom = 24, style, testID }: Props) {
+  const insets = useSafeAreaInsets();
+  // Lift the FAB above the Android system gesture/nav bar. Without the
+  // inset, the button sits behind the Samsung nav buttons on phones where
+  // the system bar overlaps the app's drawing area.
+  const effectiveBottom = bottom + insets.bottom;
   return (
     <Pressable
       onPress={onPress}
       testID={testID}
       style={({ pressed }) => [
         s.fab,
-        { bottom },
+        { bottom: effectiveBottom },
         pressed && { transform: [{ scale: 0.94 }], opacity: 0.92 },
         style,
       ]}

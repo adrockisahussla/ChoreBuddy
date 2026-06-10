@@ -10,10 +10,18 @@
       {
         "source": "/invite",
         "destination": "/invite.html"
-      },
+      }
+    ],
+    "redirects": [
       {
         "source": "/agent",
-        "destination": "/agent.html"
+        "destination": "https://github.com/adrockisahussla/ChoreBuddy-Agent/releases/latest",
+        "type": 302
+      },
+      {
+        "source": "/agent/download",
+        "destination": "https://github.com/adrockisahussla/ChoreBuddy-Agent/releases/latest/download/ChoreBuddyAgent.zip",
+        "type": 302
       }
     ]
   },
