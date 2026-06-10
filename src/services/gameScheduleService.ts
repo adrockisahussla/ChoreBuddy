@@ -1,5 +1,6 @@
 import firestore from '@react-native-firebase/firestore';
 import { GameSchedule, DaySchedule, WEEK_DAYS, defaultDay } from '../types';
+import { firewallControlService } from './firewallControlService';
 
 const col = () => firestore().collection('gameSchedules');
 
@@ -18,6 +19,15 @@ export const gameScheduleService = {
       () => cb(null),
     ),
 
-  save: (s: GameSchedule) =>
-    col().doc(s.buddyUid).set({ ...s, updatedAt: Date.now() }, { merge: true }),
+  save: async (s: GameSchedule) => {
+    await col().doc(s.buddyUid).set({ ...s, updatedAt: Date.now() }, { merge: true });
+    // Push reload to every PC paired with this kid so they refetch
+    // immediately (instead of waiting for next service restart).
+    try {
+      const { ok, fail } = await firewallControlService.pushReloadForKid(s.buddyUid);
+      return { pushed: ok, failed: fail };
+    } catch {
+      return { pushed: 0, failed: 0 };
+    }
+  },
 };

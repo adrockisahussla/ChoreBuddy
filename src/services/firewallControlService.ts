@@ -15,7 +15,7 @@ export interface Machine {
 /** Push the command to RTDB (the channel the PC agent listens on) — instant. */
 async function pushRtdb(
   machineId: string,
-  cmd: 'shutoff' | 'allow' | 'update',
+  cmd: 'shutoff' | 'allow' | 'update' | 'reload-schedule' | 'resume-schedule',
   ts: number,
 ) {
   const u = auth().currentUser;
@@ -58,6 +58,37 @@ export const firewallControlService = {
     let ok = 0, fail = 0;
     for (const m of machines) {
       try { await pushRtdb(m.id, 'update', ts); ok++; }
+      catch { fail++; }
+    }
+    return { ok, fail };
+  },
+
+  /** Fan out a `reload-schedule` push to every PC paired with this kid.
+   *  Agents on v1.0.2+ refetch gameSchedules/{kidId} once. Quota cost is
+   *  ~1 Firestore read per machine per schedule edit. Does not unpause
+   *  the enforcer on the agent side. */
+  pushReloadForKid: async (kidId: string) => {
+    const snap = await firestore().collection('firewallControl')
+      .where('kidId', '==', kidId).get();
+    const ts = Date.now();
+    let ok = 0, fail = 0;
+    for (const d of snap.docs) {
+      try { await pushRtdb(d.id, 'reload-schedule', ts); ok++; }
+      catch { fail++; }
+    }
+    return { ok, fail };
+  },
+
+  /** Push `resume-schedule` — clears the agent's SchedulePaused flag and
+   *  re-evaluates the active rule immediately. Use when the manager wants
+   *  the schedule to take over after a manual Block-now / Allow-now. */
+  pushResumeForKid: async (kidId: string) => {
+    const snap = await firestore().collection('firewallControl')
+      .where('kidId', '==', kidId).get();
+    const ts = Date.now();
+    let ok = 0, fail = 0;
+    for (const d of snap.docs) {
+      try { await pushRtdb(d.id, 'resume-schedule', ts); ok++; }
       catch { fail++; }
     }
     return { ok, fail };

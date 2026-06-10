@@ -169,12 +169,16 @@ export interface User {
   cancelAlarmsOnSignOut?: boolean;
 }
 
-/** One weekday's gameplay window. Times are "HH:MM" 24h strings. */
+/** One weekday's gameplay rule. Two modes that don't overlap:
+ *    'window' — block outside [start, end], no cap inside
+ *    'cap'    — anytime, but only `maxHours` total per day
+ *  Old docs without `mode` are read as 'window' (back-compat). */
 export interface DaySchedule {
   enabled: boolean;
-  start: string;     // window opens, e.g. "16:00"
-  end: string;       // window closes, e.g. "18:00"
-  maxHours?: number; // max play hours allowed inside the window (0 = no cap)
+  mode?: 'window' | 'cap';
+  start: string;     // window mode: opens, e.g. "16:00"
+  end: string;       // window mode: closes, e.g. "18:00"
+  maxHours?: number; // cap mode: total hours allowed per day
 }
 
 /** A buddy's weekly GameWall schedule. Doc id === buddyUid. */
@@ -198,5 +202,5 @@ export const WEEK_DAYS: { key: string; label: string }[] = [
 ];
 
 export function defaultDay(): DaySchedule {
-  return { enabled: false, start: '16:00', end: '18:00', maxHours: 2 };
+  return { enabled: false, mode: 'window', start: '16:00', end: '18:00', maxHours: 2 };
 }

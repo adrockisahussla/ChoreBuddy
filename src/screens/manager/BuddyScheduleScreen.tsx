@@ -68,14 +68,29 @@ export default function BuddyScheduleScreen({ route, navigation }: any) {
 
   const save = async () => {
     if (!sched) return;
-    try { await gameScheduleService.save(sched); dirty.current = false; toast('Schedule saved'); navigation.goBack(); }
+    try {
+      const res = await gameScheduleService.save(sched) as any;
+      dirty.current = false;
+      const pushed = res?.pushed ?? 0;
+      toast(pushed > 0 ? `Saved · pushed to ${pushed} PC${pushed === 1 ? '' : 's'}` : 'Schedule saved');
+      navigation.goBack();
+    }
     catch (e: any) { toast(`Save failed: ${e?.message || e}`); }
   };
 
   const manual = async (m: Machine, cmd: 'shutoff' | 'allow') => {
     setBusy(`${m.id}:${cmd}`);
-    try { await firewallControlService.send(m, cmd); toast(cmd === 'shutoff' ? 'Blocked now' : 'Allowed now'); }
+    try { await firewallControlService.send(m, cmd); toast(cmd === 'shutoff' ? 'Blocked now · schedule paused' : 'Allowed now · schedule paused'); }
     catch (e: any) { toast(`Error: ${e?.message || e}`); }
+    finally { setBusy(null); }
+  };
+
+  const resumeSchedule = async () => {
+    setBusy('resume');
+    try {
+      const { ok } = await firewallControlService.pushResumeForKid(buddyUid);
+      toast(ok > 0 ? `▶ Resumed on ${ok} PC${ok === 1 ? '' : 's'}` : 'No paired PCs');
+    } catch (e: any) { toast(`Error: ${e?.message || e}`); }
     finally { setBusy(null); }
   };
 
@@ -97,6 +112,16 @@ export default function BuddyScheduleScreen({ route, navigation }: any) {
         {machines.length > 0 && (
           <>
             <Text variant="sectionLabel" style={{ marginBottom: 10 }}>Right now</Text>
+            <TouchableOpacity
+              style={s.resumeBtn}
+              disabled={busy === 'resume'}
+              onPress={resumeSchedule}
+              activeOpacity={0.7}
+            >
+              <Text style={s.resumeBtnTxt}>
+                {busy === 'resume' ? '▶ Sending…' : '▶ Resume schedule (cancel manual override)'}
+              </Text>
+            </TouchableOpacity>
             {machines.map(m => {
               const blocked = m.command === 'shutoff';
               return (
@@ -137,19 +162,44 @@ export default function BuddyScheduleScreen({ route, navigation }: any) {
                 </TouchableOpacity>
               </View>
 
-              {d.enabled && (
-                <View style={{ marginTop: 10, gap: 8 }}>
-                  <Stepper label="Starts" value={fmt12(d.start)}
-                    onDec={() => patchDay(key, { start: toHHMM(toMin(d.start) - 30) })}
-                    onInc={() => patchDay(key, { start: toHHMM(toMin(d.start) + 30) })} />
-                  <Stepper label="Ends" value={fmt12(d.end)}
-                    onDec={() => patchDay(key, { end: toHHMM(toMin(d.end) - 30) })}
-                    onInc={() => patchDay(key, { end: toHHMM(toMin(d.end) + 30) })} />
-                  <Stepper label="Max/day" value={(d.maxHours ?? 0) === 0 ? 'No cap' : `${d.maxHours}h`}
-                    onDec={() => patchDay(key, { maxHours: Math.max(0, (d.maxHours ?? 0) - 0.5) })}
-                    onInc={() => patchDay(key, { maxHours: Math.min(12, (d.maxHours ?? 0) + 0.5) })} />
-                </View>
-              )}
+              {d.enabled && (() => {
+                const mode = d.mode ?? 'window';
+                return (
+                  <View style={{ marginTop: 10, gap: 8 }}>
+                    {/* Mode pill: Window vs Daily cap. Pick one — they
+                        used to fight each other when both applied. */}
+                    <View style={s.modeRow}>
+                      <TouchableOpacity
+                        style={[s.modePill, mode === 'window' && s.modePillOn]}
+                        onPress={() => patchDay(key, { mode: 'window' })}
+                      >
+                        <Text style={[s.modePillTxt, mode === 'window' && { color: '#fff' }]}>🕒 Time window</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[s.modePill, mode === 'cap' && s.modePillOn]}
+                        onPress={() => patchDay(key, { mode: 'cap' })}
+                      >
+                        <Text style={[s.modePillTxt, mode === 'cap' && { color: '#fff' }]}>⏱ Daily cap</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {mode === 'window' ? (
+                      <>
+                        <Stepper label="Starts" value={fmt12(d.start)}
+                          onDec={() => patchDay(key, { start: toHHMM(toMin(d.start) - 30) })}
+                          onInc={() => patchDay(key, { start: toHHMM(toMin(d.start) + 30) })} />
+                        <Stepper label="Ends" value={fmt12(d.end)}
+                          onDec={() => patchDay(key, { end: toHHMM(toMin(d.end) - 30) })}
+                          onInc={() => patchDay(key, { end: toHHMM(toMin(d.end) + 30) })} />
+                      </>
+                    ) : (
+                      <Stepper label="Max/day" value={(d.maxHours ?? 0) === 0 ? 'No cap' : `${d.maxHours}h`}
+                        onDec={() => patchDay(key, { maxHours: Math.max(0, (d.maxHours ?? 0) - 0.5) })}
+                        onInc={() => patchDay(key, { maxHours: Math.min(12, (d.maxHours ?? 0) + 0.5) })} />
+                    )}
+                  </View>
+                );
+              })()}
             </Card>
           );
         })}
@@ -171,4 +221,21 @@ const s = StyleSheet.create({
   stepVal: { flex: 1, textAlign: 'center', fontWeight: '800', fontSize: 15, color: theme.colors.text },
   nowBtn: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12 },
   nowBtnTxt: { color: '#fff', fontWeight: '900', fontSize: 13 },
+
+  modeRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
+  modePill: {
+    flex: 1, paddingVertical: 9, borderRadius: 10,
+    borderWidth: 1.5, borderColor: theme.colors.cardBorder,
+    alignItems: 'center',
+  },
+  modePillOn: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
+  modePillTxt: { fontWeight: '900', fontSize: 13, color: theme.colors.muted },
+
+  resumeBtn: {
+    backgroundColor: theme.colors.accent + '22',
+    borderWidth: 1, borderColor: theme.colors.accent,
+    paddingVertical: 10, borderRadius: 10,
+    alignItems: 'center', marginBottom: 10,
+  },
+  resumeBtnTxt: { color: theme.colors.accent, fontWeight: '900', fontSize: 12 },
 });
