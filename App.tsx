@@ -23,6 +23,8 @@ import { useApprovedChoreNotifier } from './src/hooks/useApprovedChoreNotifier';
 import { useAssignedChoreNotifier } from './src/hooks/useAssignedChoreNotifier';
 import { useClaimResolvedNotifier } from './src/hooks/useClaimResolvedNotifier';
 import { useRejectedChoreNotifier } from './src/hooks/useRejectedChoreNotifier';
+import { useScreenTimeBurner } from './src/hooks/useScreenTimeBurner';
+import { useCollectExpirySweep } from './src/hooks/useCollectExpirySweep';
 
 configureGoogleSignin();
 // App Check temporarily disabled until Play Integrity API is enabled in
@@ -87,6 +89,8 @@ function ReminderSchedulerHost() {
   useAssignedChoreNotifier();
   useClaimResolvedNotifier();
   useRejectedChoreNotifier();
+  useScreenTimeBurner();
+  useCollectExpirySweep();
   return null;
 }
 

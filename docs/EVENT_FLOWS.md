@@ -271,6 +271,12 @@ The Reward Pool is the per-kid screen-time catalog the manager curates. Each ent
   - Kid device, `bottom-toast` (via `toastQueue`): `🎉 +<N> min added to your screen-time wallet!` (or `🎉 "<title>" was approved!` for legacy claims).
 - **Notifee** — Kid device only. Id `claim-<claimId>`, title `🎉 Reward unlocked`, body `+<N> min screen time added · "<title>"`.
 - **Persists** — `notifiedClaimant=true` prevents re-fire; offline catch-up works on next sign-in.
+- **Side effects (v1.40+)** — On Fulfill, the manager device additionally:
+  1. Resolves the target PC list: `users/{kidUid}.assignedMachineId` if set, else every machine in `firewallControl` with matching `kidId`.
+  2. Pushes `allow` to each target via `firewallControlService.send` (writes `firewallControl/{machineId}` + RTDB `firewallControl/{machineId}/control`). The Windows agent treats this as a manual override, so the schedule is paused until a `resume-schedule` push.
+  3. Writes a `screenTimeBurns/{auto}` doc `{ familyId, kidId, machineIds[], expiresAt=now+minutes*60_000, claimId, minutes }`.
+  4. Schedules a Notifee `burn:<burnId>` trigger on the manager's own phone for `expiresAt` so a "time's up" notification rings even if the app gets backgrounded.
+- **Burn reconciliation** — [`src/hooks/useScreenTimeBurner.ts`](../src/hooks/useScreenTimeBurner.ts) (mounted in App.tsx's `ReminderSchedulerHost`) ticks every 30 s on manager devices. When a burn's `expiresAt <= now` and `!processedAt`, it marks `processedAt` then pushes `shutoff` to every `machineIds[]` entry and decrements the wallet by `minutes`. Catches lapses even when the Notifee notification fires while the manager is offline — first device back online finishes the job.
 - **UI** — Kid's wallet card on `BuddyHomeScreen` + `BuddyRewardsScreen` shows updated `⏱ minutes` count live.
 
 ### CLAIM_DENIED
@@ -388,6 +394,8 @@ These are paths where a user takes a meaningful action but the affected party ne
 | `REMINDER_FIRED` cross-device | If the buddy's device hasn't opened the app since the reminder was created, `useReminderScheduling` has never run on their phone and the alarm won't ring. Requires per-device snapshot sync to work, which means buddy must open the app at least once between create and fire-time. |
 | App-fully-killed delivery | All toasts + local notifications fail if the receiver's app is swipe-killed. Requires FCM + Cloud Function (Blaze plan, currently declined). |
 | `CHORE_WEEKLY_RESET` | Doesn't clear `notifiedAssignee`. A weekly chore that was approved last week and reset to `todo` will, on its next approval, still re-notify because the submit between reset and approval clears the flag. Edge case to double-check if anyone reports a missing approval toast on weekly chores. |
+| `CHORE_FORFEITED` | Uncollected approvals lapse after 30 days via `useCollectExpirySweep` (manager-side, throttled to one pass per app launch). Kid currently sees no toast or notification — chore just disappears from Collect. Surface a quiet `⚠️ N pts forfeited` toast if this becomes a complaint. |
+| `BURN_SHUTOFF` cold-kill | If every manager device is swipe-killed past a burn's `expiresAt`, the PC stays unlocked until a manager opens the app. Phase 2 (Windows agent owns the burn) closes this; until then, document as known. |
 | `SubmissionToasts` cold-start | Uses per-mount `wasLoading` ref instead of a Firestore flag — events that fired before the user signed in this session will NOT re-toast on next foreground. Only `usePendingChoreNotifier` and `useApprovedChoreNotifier` survive cold-start via the `notified*` flags on chore docs. |
 
 ---

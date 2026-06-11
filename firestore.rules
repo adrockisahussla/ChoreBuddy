@@ -96,6 +96,17 @@ service cloud.firestore {
       allow delete: if inMyFamily(resource.data.familyId);
     }
 
+    // Active screen-time burns — one per fulfilled claim, owned by the
+    // family. Manager devices reconcile expirations via the
+    // useScreenTimeBurner hook. Kids can't write; reading is family-
+    // scoped so a buddy can see their own running clock if we ever add
+    // a "Time left: 12 min" UI.
+    match /screenTimeBurns/{id} {
+      allow read: if inMyFamily(resource.data.familyId);
+      allow create: if amManager() && inMyFamily(request.resource.data.familyId);
+      allow update, delete: if amManager() && inMyFamily(resource.data.familyId);
+    }
+
     // GameWall play schedules — one doc per buddy (id === buddyUid),
     // scoped to the family. Managers create/edit; family members can read.
     match /gameSchedules/{id} {

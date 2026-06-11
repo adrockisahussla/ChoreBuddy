@@ -24,9 +24,9 @@ export default function BuddyProfileScreen({ route, navigation }: any) {
   // fall off the count so kid + manager see consistent numbers.
   const myChores = my.filter(c =>
     c.status === 'todo' || c.status === 'pending' || c.status === 'rejected' ||
-    (c.status === 'approved' && !c.collectedAt),
+    (c.status === 'approved' && !c.collectedAt && !c.forfeitedAt),
   ).length;
-  const myReadyToCollect = my.filter(c => c.status === 'approved' && !c.collectedAt).length;
+  const myReadyToCollect = my.filter(c => c.status === 'approved' && !c.collectedAt && !c.forfeitedAt).length;
   const myApprovals = my.filter(c => c.status === 'pending').length;
   const myOverdue = my.filter(c => (c.status === 'todo' || c.status === 'pending') && isOverdue(c)).length;
   const myRewardReq = rewardItems.filter(r => r.kidId === buddyUid && r.status === 'requested').length

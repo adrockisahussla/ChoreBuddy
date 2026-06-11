@@ -92,7 +92,7 @@ export default function HomeScreen({ navigation }: any) {
                 c.status === 'todo' ||
                 c.status === 'pending' ||
                 c.status === 'rejected' ||
-                (c.status === 'approved' && !c.collectedAt)
+                (c.status === 'approved' && !c.collectedAt && !c.forfeitedAt)
               ),
             ).length;
             // Chores I assigned that are awaiting my approval — only
@@ -107,7 +107,7 @@ export default function HomeScreen({ navigation }: any) {
               : chores.filter(c => c.assignedTo === uid && c.status === 'pending').length;
             // Uncollected approvals — points kid hasn't tapped Collect on yet.
             const readyToCollect = chores.filter(c =>
-              c.assignedTo === uid && c.status === 'approved' && !c.collectedAt,
+              c.assignedTo === uid && c.status === 'approved' && !c.collectedAt && !c.forfeitedAt,
             ).length;
             // "Rewards" pill aggregates both: kid-suggested rewards waiting
             // for manager approval AND pool-redemption claims pending fulfillment.

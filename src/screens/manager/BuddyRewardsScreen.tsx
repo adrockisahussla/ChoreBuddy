@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet, Text as RNText } from 'react-native';
 import { useRewards, useRewardClaims } from '../../hooks/useRewards';
 import { useBuddies } from '../../hooks/useBuddies';
 import { theme } from '../../theme';
 import { rewardService, claimService } from '../../services/rewardService';
 import { userService } from '../../services/userService';
+import { firewallControlService, Machine } from '../../services/firewallControlService';
+import { screenTimeBurnService } from '../../services/screenTimeBurnService';
+import { scheduleBurnExpiryNotification } from '../../services/notificationService';
+import { useFamilyId } from '../../hooks/useFamilyId';
 import { buddyLabel } from '../../utils/buddy';
 import { Platform, ToastAndroid } from 'react-native';
 import { Header, Screen, Card, Text, useConfirm, SCREEN_BOTTOM_PAD } from '../../components';
@@ -16,8 +20,19 @@ export default function BuddyRewardsScreen({ route, navigation }: any) {
   const { buddies } = useBuddies();
   const { rewardItems } = useRewards();
   const { rewardClaims } = useRewardClaims();
+  const familyId = useFamilyId();
   const confirm = useConfirm();
   const [tab, setTab] = useState<RewardsTab>('pending');
+
+  // Subscribe to PCs paired with this kid — Fulfill auto-targets them.
+  const [machines, setMachines] = useState<Machine[]>([]);
+  useEffect(() => {
+    if (!buddyUid) return;
+    const unsub = firewallControlService.subscribeForKid(buddyUid, setMachines);
+    return () => unsub();
+  }, [buddyUid]);
+
+  const buddy = buddies.find(b => b.uid === buddyUid);
 
   const myRewards = rewardItems.filter(r => r.kidId === buddyUid);
   const myClaims = rewardClaims.filter(c => c.kidId === buddyUid);
@@ -127,11 +142,49 @@ export default function BuddyRewardsScreen({ route, navigation }: any) {
                       await claimService.approve(c.id);
                       if (c.minutes && c.kidId) {
                         await userService.addMinutes(c.kidId, c.minutes);
+
+                        // Auto-target via assignedMachineId when set;
+                        // otherwise fan out to every PC paired to the
+                        // kid. Either way, push ALLOW immediately so the
+                        // kid can start playing the moment Fulfill taps.
+                        const assignedId = buddy?.assignedMachineId;
+                        const targets = (assignedId
+                          ? machines.filter(m => m.id === assignedId)
+                          : machines);
+                        for (const m of targets) {
+                          try {
+                            await firewallControlService.send(m, 'allow');
+                          } catch { /* per-PC error already toasted */ }
+                        }
+
+                        // Persist the burn so SHUTOFF still fires even
+                        // if this device dies before the timer rings.
+                        const expiresAt = Date.now() + c.minutes * 60_000;
+                        if (familyId) {
+                          try {
+                            const burnId = await screenTimeBurnService.add({
+                              familyId,
+                              kidId: c.kidId,
+                              machineIds: targets.map(m => m.id),
+                              expiresAt,
+                              claimId: c.id,
+                              minutes: c.minutes,
+                            });
+                            // Notifee nudge so the manager isn't blindsided
+                            // when time runs out.
+                            scheduleBurnExpiryNotification({
+                              burnId,
+                              kidName: buddyLabel(c.kidId, buddies),
+                              machineName: targets[0]?.machineName,
+                              fireAt: expiresAt,
+                            }).catch(() => { /* non-fatal */ });
+                          } catch { /* burn-doc write failed; manual shutoff still works */ }
+                        }
                       }
                       if (Platform.OS === 'android') {
                         ToastAndroid.show(
                           c.minutes
-                            ? `✓ +${c.minutes} min added to ${buddyLabel(c.kidId, buddies)}'s wallet`
+                            ? `✓ +${c.minutes} min — PC unlocked`
                             : `✓ Fulfilled "${c.rewardTitle}"`,
                           ToastAndroid.SHORT,
                         );

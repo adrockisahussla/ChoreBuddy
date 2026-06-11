@@ -5,7 +5,7 @@ import { useChores } from '../../hooks/useChores';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useFamilyMembers } from '../../hooks/useFamilyMembers';
 import { choreService } from '../../services/choreService';
-import { chorePoints, isOverdue } from '../../utils/buddy';
+import { chorePoints, isOverdue, COLLECT_EXPIRY_MS } from '../../utils/buddy';
 import { statusLabel, statusPillStyle } from '../../utils/choreStatus';
 import { currentWeek } from '../../utils/week';
 import { Chore } from '../../types';
@@ -67,7 +67,9 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
   // behind the week navigator would orphan pre-collect-feature chores
   // and any approval that landed last week. Collected approvals are
   // hidden entirely; the Done tab is only "stuff to collect."
-  const uncollected = my.filter(c => c.status === 'approved' && !c.collectedAt);
+  // Forfeited approvals (Collect window lapsed) drop out of the list
+  // — they're not money on the table anymore, just history.
+  const uncollected = my.filter(c => c.status === 'approved' && !c.collectedAt && !c.forfeitedAt);
   const collectedThisWeek = inWeek.filter(c => c.status === 'approved' && !!c.collectedAt);
 
   const totalPts = collectedThisWeek.reduce((s, c) => s + chorePoints(c), 0);
@@ -243,27 +245,45 @@ export default function BuddyChoresScreen({ route, navigation }: any) {
             <Text variant="sectionLabel" style={{ marginTop: 0, color: theme.colors.accent }}>
               🪙 Collect your points!
             </Text>
-            {uncollected.map(c => (
-              <TouchableOpacity
-                key={c.id}
-                style={s.collectRow}
-                onPress={() => collect(c)}
-                activeOpacity={0.7}
-              >
-                <View style={s.coinIcon}>
-                  <RNText style={s.coinText}>🪙</RNText>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text variant="h3" style={{ fontSize: 14 }}>{c.title}</Text>
-                  <Text variant="tiny" style={{ marginTop: 2, fontSize: 11 }}>
-                    Approved by {assignerName(c.createdBy)} — tap to bank +{chorePoints(c)} pts
-                  </Text>
-                </View>
-                <View style={s.collectBtn}>
-                  <RNText style={s.collectBtnText}>+{chorePoints(c)}</RNText>
-                </View>
-              </TouchableOpacity>
-            ))}
+            {uncollected.map(c => {
+              // Expiry pill — 30 days from approval (completedAt is set
+              // to Date.now() when the manager taps Approve). Surfaces
+              // a warning when the window is closing so the kid actually
+              // taps Collect before they lose the points.
+              const daysLeft = Math.max(0, Math.ceil(
+                (COLLECT_EXPIRY_MS - (Date.now() - (c.completedAt || Date.now()))) / 86400000,
+              ));
+              const soon = daysLeft <= 3;
+              return (
+                <TouchableOpacity
+                  key={c.id}
+                  style={s.collectRow}
+                  onPress={() => collect(c)}
+                  activeOpacity={0.7}
+                >
+                  <View style={s.coinIcon}>
+                    <RNText style={s.coinText}>🪙</RNText>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text variant="h3" style={{ fontSize: 14 }}>{c.title}</Text>
+                    <Text variant="tiny" style={{ marginTop: 2, fontSize: 11 }}>
+                      Approved by {assignerName(c.createdBy)} — tap to bank +{chorePoints(c)} pts
+                    </Text>
+                    {soon && (
+                      <Text variant="tiny" style={{
+                        marginTop: 2, fontSize: 10, fontWeight: '900',
+                        color: theme.colors.danger,
+                      }}>
+                        ⚠️ Expires in {daysLeft} day{daysLeft === 1 ? '' : 's'}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={s.collectBtn}>
+                    <RNText style={s.collectBtnText}>+{chorePoints(c)}</RNText>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </>
         )}
 

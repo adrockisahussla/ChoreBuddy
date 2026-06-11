@@ -320,6 +320,62 @@ export async function scheduleChoreNotification({
   }
 }
 
+/**
+ * Schedule the manager-side "time's up — block this PC now" notification
+ * for a screen-time burn. Fires at `fireAt` on the manager's phone. The
+ * actual SHUTOFF push to RTDB is done in the foreground by the
+ * useScreenTimeBurner hook when it observes `expiresAt < now()`; the
+ * notification is a UX nudge plus a fallback wake when the app has been
+ * backgrounded long enough that snapshots stop arriving.
+ *
+ * Stable id `burn:<id>` so re-schedule replaces.
+ */
+export async function scheduleBurnExpiryNotification(opts: {
+  burnId: string;
+  kidName: string;
+  machineName?: string;
+  fireAt: number;
+}): Promise<ScheduleResult> {
+  if (opts.fireAt <= Date.now()) return { ok: false, reason: 'past' };
+  try {
+    await ensureChannel();
+    const okNotif = await requestNotificationPermission();
+    if (!okNotif) return { ok: false, reason: 'no-notification-perm' };
+    const okAlarm = await canScheduleExactAlarms();
+    if (!okAlarm) return { ok: false, reason: 'no-exact-alarm-perm' };
+
+    const trigger: TimestampTrigger = {
+      type: TriggerType.TIMESTAMP,
+      timestamp: opts.fireAt,
+      alarmManager: { allowWhileIdle: true },
+    };
+
+    const id = await notifee.createTriggerNotification(
+      {
+        id: `burn:${opts.burnId}`,
+        title: `⏱ ${opts.kidName}'s screen time is up`,
+        body: opts.machineName
+          ? `Tap to block "${opts.machineName}" now.`
+          : 'Tap to block their PC now.',
+        data: { burnId: opts.burnId, kind: 'burn' },
+        android: {
+          channelId: CHANNEL_ID,
+          smallIcon: 'ic_launcher',
+          category: AndroidCategory.ALARM,
+          importance: AndroidImportance.HIGH,
+          visibility: AndroidVisibility.PUBLIC,
+          pressAction: { id: 'default', launchActivity: 'default' },
+        },
+      },
+      trigger,
+    );
+    return { ok: true, id };
+  } catch (e: any) {
+    console.warn('scheduleBurnExpiryNotification failed', e);
+    return { ok: false, reason: 'error', message: e?.message || String(e) };
+  }
+}
+
 /** Cancel a previously scheduled notification by Notifee id. */
 export async function cancelReminderNotification(id: string): Promise<void> {
   if (!id) return;

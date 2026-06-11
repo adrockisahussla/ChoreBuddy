@@ -91,7 +91,7 @@ export default function BuddyHomeScreen({ navigation }: any) {
 
   // Available points = COLLECTED chore points − spent − pending claims.
   // Uncollected approvals don't count (kid has to tap Collect first).
-  const approved = my.filter(c => c.status === 'approved');
+  const approved = my.filter(c => c.status === 'approved' && !c.forfeitedAt);
   const collected = approved.filter(c => !!c.collectedAt);
   const uncollected = approved.filter(c => !c.collectedAt);
   const totalEarned = collected.reduce((s, c) => s + chorePoints(c), 0);

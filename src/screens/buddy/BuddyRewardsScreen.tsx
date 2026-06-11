@@ -34,7 +34,9 @@ export default function BuddyRewardsScreen({ navigation }: any) {
 
   // Points balance: only chores I've collected count. Uncollected approvals
   // sit on the chores screen waiting for me to tap Collect.
-  const myApproved = chores.filter(c => c.assignedTo === myUid && c.status === 'approved');
+  const myApproved = chores.filter(
+    c => c.assignedTo === myUid && c.status === 'approved' && !c.forfeitedAt,
+  );
   const collected = myApproved.filter(c => !!c.collectedAt);
   const uncollected = myApproved.filter(c => !c.collectedAt);
   const totalEarned = collected.reduce((s, c) => s + chorePoints(c), 0);

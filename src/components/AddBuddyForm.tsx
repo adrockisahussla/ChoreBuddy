@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, TouchableOpacity, TextInput, StyleSheet, Alert, Modal, ScrollView, SafeAreaView, Platform, ToastAndroid, Text as RNText } from 'react-native';
+import { View, TouchableOpacity, TextInput, StyleSheet, Alert, Modal, ScrollView, SafeAreaView, Platform, ToastAndroid, Pressable, Text as RNText } from 'react-native';
 import { theme } from '../theme';
 import { inviteService } from '../services/inviteService';
 import { userService } from '../services/userService';
 import { useFamilyId } from '../hooks/useFamilyId';
 import { Role, User } from '../types';
+import { firewallControlService, Machine } from '../services/firewallControlService';
 import Pill from './Pill';
 import Button from './Button';
 import Text from './Text';
@@ -37,6 +38,9 @@ export default function AddBuddyForm({ visible, onClose, buddy }: Props) {
   const [showAvatars, setShowAvatars] = useState(false);
   const [loading, setLoading] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
+  const [assignedMachineId, setAssignedMachineId] = useState<string>('');
+  const [machines, setMachines] = useState<Machine[]>([]);
+  const [pcPickerOpen, setPcPickerOpen] = useState(false);
   const familyId = useFamilyId();
 
   // Hydrate when entering edit mode
@@ -46,10 +50,20 @@ export default function AddBuddyForm({ visible, onClose, buddy }: Props) {
       setEmail(buddy.email || '');
       setRole(buddy.role || 'buddy');
       setAvatar(buddy.avatar || AVATARS[0]);
+      setAssignedMachineId(buddy.assignedMachineId || '');
       setShowAvatars(false);
       setLoading(false);
     }
   }, [visible, buddy]);
+
+  // Subscribe to the family's PCs while the form is open so the manager
+  // can bind the kid to a specific machine (auto-target for screen-time
+  // claim fulfillment).
+  useEffect(() => {
+    if (!visible || !isEdit) return;
+    const unsub = firewallControlService.subscribeAll(setMachines);
+    return () => unsub();
+  }, [visible, isEdit]);
 
   const emailValid = EMAIL_RE.test(email.trim());
   const canSubmit = isEdit
@@ -92,10 +106,13 @@ export default function AddBuddyForm({ visible, onClose, buddy }: Props) {
     if (!canSubmit || !buddy) return;
     setLoading(true);
     try {
+      // Empty string = "not bound to any PC". Treating empty as unset
+      // is simpler than juggling FieldValue.delete on update().
       await userService.update(buddy.id, {
         displayName: name.trim(),
         role,
         avatar,
+        assignedMachineId: assignedMachineId || '',
       });
       if (Platform.OS === 'android') {
         ToastAndroid.show(`✓ Updated ${name.trim()}`, ToastAndroid.SHORT);
@@ -178,6 +195,24 @@ export default function AddBuddyForm({ visible, onClose, buddy }: Props) {
             maxLength={24}
           />
 
+          {isEdit && (
+            <>
+              <Text variant="sectionLabel" style={{ marginTop: 16 }}>Assigned PC</Text>
+              <TouchableOpacity style={s.pcBtn} onPress={() => setPcPickerOpen(true)}>
+                <RNText style={s.pcIcon}>🖥</RNText>
+                <RNText style={s.pcText} numberOfLines={1}>
+                  {assignedMachineId
+                    ? (machines.find(m => m.id === assignedMachineId)?.machineName || assignedMachineId)
+                    : 'None — manager picks at fulfill time'}
+                </RNText>
+                <RNText style={s.pcChev}>›</RNText>
+              </TouchableOpacity>
+              <Text variant="tiny" style={{ marginTop: 6, opacity: 0.7 }}>
+                When set, fulfilling a screen-time claim auto-targets this PC.
+              </Text>
+            </>
+          )}
+
           <Text variant="sectionLabel" style={{ marginTop: 16 }}>Email</Text>
           <TextInput
             style={[s.input, isEdit && s.inputDisabled, isEdit && s.inputSmall]}
@@ -230,6 +265,57 @@ export default function AddBuddyForm({ visible, onClose, buddy }: Props) {
             </View>
           )}
         </ScrollView>
+
+        {/* Assigned-PC picker — bottom sheet over the form */}
+        <Modal
+          visible={pcPickerOpen}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setPcPickerOpen(false)}
+        >
+          <Pressable style={s.sheetBackdrop} onPress={() => setPcPickerOpen(false)}>
+            <Pressable style={s.sheetCard} onPress={() => { /* swallow */ }}>
+              <View style={s.sheetHandle} />
+              <Text variant="sectionLabel" style={{ marginTop: 0, marginBottom: 12 }}>Assign to PC</Text>
+              <TouchableOpacity
+                style={s.sheetRow}
+                onPress={() => { setAssignedMachineId(''); setPcPickerOpen(false); }}
+              >
+                <RNText style={{ fontSize: 22 }}>❌</RNText>
+                <View style={{ flex: 1 }}>
+                  <Text variant="h3" style={{ fontSize: 15 }}>None</Text>
+                  <Text variant="tiny" style={{ marginTop: 2, opacity: 0.7 }}>
+                    Manager picks the PC at fulfill time.
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              {machines.length === 0 ? (
+                <Text variant="empty" style={{ paddingVertical: 24 }}>
+                  No PCs paired yet — install the desktop agent first.
+                </Text>
+              ) : (
+                machines.map(m => (
+                  <TouchableOpacity
+                    key={m.id}
+                    style={s.sheetRow}
+                    onPress={() => { setAssignedMachineId(m.id); setPcPickerOpen(false); }}
+                  >
+                    <RNText style={{ fontSize: 22 }}>🖥</RNText>
+                    <View style={{ flex: 1 }}>
+                      <Text variant="h3" style={{ fontSize: 15 }}>{m.machineName || m.id}</Text>
+                      <Text variant="tiny" style={{ marginTop: 2, opacity: 0.7 }}>
+                        {m.id}
+                      </Text>
+                    </View>
+                    {assignedMachineId === m.id && (
+                      <RNText style={{ fontSize: 18, color: theme.colors.accent }}>✓</RNText>
+                    )}
+                  </TouchableOpacity>
+                ))
+              )}
+            </Pressable>
+          </Pressable>
+        </Modal>
 
         {/* Remove confirmation — fullscreen modal with hold-to-confirm */}
         <Modal
@@ -343,4 +429,24 @@ const s = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 18,
     backgroundColor: theme.colors.danger,
   },
+  pcBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: theme.colors.card,
+    borderWidth: 1.5, borderColor: theme.colors.cardBorder,
+    borderRadius: theme.radius.lg,
+    paddingHorizontal: 14, paddingVertical: 14, marginTop: 6,
+  },
+  pcIcon: { fontSize: 18 },
+  pcText: { flex: 1, color: theme.colors.text, fontWeight: '700', fontSize: 15 },
+  pcChev: { color: theme.colors.muted, fontSize: 22, fontWeight: '700' },
+
+  sheetBackdrop: { flex: 1, backgroundColor: '#00000099', justifyContent: 'flex-end' },
+  sheetCard: {
+    backgroundColor: theme.colors.card,
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    padding: theme.spacing.lg, paddingBottom: theme.spacing.xxl,
+    borderTopWidth: 1, borderColor: theme.colors.cardBorder,
+  },
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: theme.colors.cardBorder, alignSelf: 'center', marginBottom: 12 },
+  sheetRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: theme.radius.lg, marginBottom: 4 },
 });

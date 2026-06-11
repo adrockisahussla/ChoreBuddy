@@ -39,6 +39,11 @@ export interface Chore {
   /** When the assignee tapped "Collect" to bank their points. Only
    *  collected approvals count toward the spendable points balance. */
   collectedAt?: number;
+  /** When the 30-day collect window lapsed without the kid tapping
+   *  Collect. Forfeited chores are kept around (so history isn't lost)
+   *  but no longer surface in the Collect section and don't count toward
+   *  any balance. */
+  forfeitedAt?: number;
   /** True once the assignee has been notified about a rejection. Cleared
    *  by submit() so re-rejection after re-submission notifies again. */
   notifiedRejection?: boolean;
@@ -167,6 +172,12 @@ export interface User {
    *  session on the same phone. Default off — flip on in Settings if
    *  the device is shared. */
   cancelAlarmsOnSignOut?: boolean;
+  /** Machine id (Windows agent doc id under `firewallControl`) the kid
+   *  is bound to. When set, fulfilling a screen-time claim auto-targets
+   *  this PC — manager doesn't have to pick. When unset, fulfillment
+   *  falls back to "any PC paired to this kid via firewallControl.kidId"
+   *  and pushes ALLOW to all of them. */
+  assignedMachineId?: string;
 }
 
 /** One weekday's gameplay rule. Two modes that don't overlap:

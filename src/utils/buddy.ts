@@ -41,12 +41,19 @@ export interface BuddyPointsBreakdown {
   lifetimeEarned: number;
 }
 
+/** Window after which an approved-but-uncollected chore is forfeited.
+ *  Matches the answer to the "Collect expiry" open question in the
+ *  Rewards Overhaul plan. */
+export const COLLECT_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000;
+
 export const buddyPoints = (
   chores: Chore[],
   claims: RewardClaim[],
   uid: string,
 ): BuddyPointsBreakdown => {
-  const myApproved = chores.filter(c => c.assignedTo === uid && c.status === 'approved');
+  const myApproved = chores.filter(
+    c => c.assignedTo === uid && c.status === 'approved' && !c.forfeitedAt,
+  );
   const collected = myApproved.filter(c => !!c.collectedAt);
   const lifetimeEarned = collected.reduce((s, c) => s + chorePoints(c), 0);
   const ready = myApproved
