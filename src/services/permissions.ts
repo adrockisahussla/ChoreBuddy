@@ -1,4 +1,4 @@
-import { NativeModules, Platform } from 'react-native';
+import { NativeModules, Platform, PermissionsAndroid } from 'react-native';
 import notifee, { AuthorizationStatus } from '@notifee/react-native';
 
 const { ChoreBuddyPermissions } = NativeModules as {
@@ -52,6 +52,26 @@ export async function requestReminderPermissions(): Promise<PermissionStatus> {
     try { await notifee.requestPermission(); } catch {}
   }
   return checkReminderPermissions();
+}
+
+/** Request foreground location (ACCESS_FINE_LOCATION). Returns true if granted.
+ *  Background/while-locked tracking is a later phase — this covers recording
+ *  while the app is open. */
+export async function requestLocationPermission(): Promise<boolean> {
+  if (Platform.OS !== 'android') return true;
+  try {
+    const result = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+      {
+        title: 'Location access',
+        message: 'ChoreBuddy needs your location to record where you go on a property.',
+        buttonPositive: 'Allow',
+      },
+    );
+    return result === PermissionsAndroid.RESULTS.GRANTED;
+  } catch {
+    return false;
+  }
 }
 
 export function openAlarmSettings(): void {

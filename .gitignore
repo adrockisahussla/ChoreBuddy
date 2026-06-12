@@ -78,3 +78,6 @@ public/*.apk
 # Firebase service account keys — NEVER commit these
 scripts/service-account-key.json
 **/serviceAccountKey.json
+
+# Secrets — keystore passwords + Maps API key
+android/gradle.properties

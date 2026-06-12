@@ -180,6 +180,29 @@ export interface User {
   assignedMachineId?: string;
 }
 
+/** A recorded GPS tracking session (one "Record → Stop"). Points live in
+ *  the `points` subcollection under each track doc. */
+export interface LocationTrack {
+  id: string;
+  familyId: string;
+  userId: string;            // uid of the person who recorded
+  userName: string;
+  status: 'recording' | 'done';
+  startedAt: number;
+  endedAt: number | null;
+  pointCount: number;
+  createdAt: number;
+}
+
+/** One GPS sample within a track's `points` subcollection. */
+export interface TrackPoint {
+  lat: number;
+  lng: number;
+  acc: number | null;        // accuracy in metres
+  t: number;                 // epoch ms
+  seq: number;               // monotonic order within the track
+}
+
 /** One weekday's gameplay rule. Two modes that don't overlap:
  *    'window' — block outside [start, end], no cap inside
  *    'cap'    — anytime, but only `maxHours` total per day

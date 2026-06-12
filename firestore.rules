@@ -123,6 +123,21 @@ service cloud.firestore {
       allow read, write: if amManager();
     }
 
+    // Recorded GPS tracks — one doc per "Record → Stop" session, with GPS
+    // samples in the `points` subcollection. Family-scoped. The subcollection
+    // docs stay lean (no familyId), so they inherit the parent track's family.
+    match /tracks/{id} {
+      allow read: if inMyFamily(resource.data.familyId);
+      allow create: if inMyFamily(request.resource.data.familyId);
+      allow update, delete: if inMyFamily(resource.data.familyId);
+
+      match /points/{pid} {
+        allow read, write: if inMyFamily(
+          get(/databases/$(database)/documents/tracks/$(id)).data.familyId
+        );
+      }
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

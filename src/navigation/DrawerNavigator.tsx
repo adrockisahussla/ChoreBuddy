@@ -10,6 +10,7 @@ import RewardPoolScreen from '../screens/manager/RewardPoolScreen';
 import RemindersScreen from '../screens/manager/RemindersScreen';
 import SettingsScreen from '../screens/manager/SettingsScreen';
 import GameWallStack from './GameWallStack';
+import LocationStack from './LocationStack';
 import { theme } from '../theme';
 import { authService } from '../services/authService';
 import { useCurrentUser } from '../hooks/useCurrentUser';
@@ -27,6 +28,7 @@ const ITEMS: DrawerItem[] = [
   { route: 'ChorePool',   label: 'Chore Pool', icon: '⭐' },
   { route: 'RewardPool',  label: 'Reward Pool', icon: '🎁', managerOnly: true },
   { route: 'Reminders',   label: 'Reminders',  icon: '🔔' },
+  { route: 'Location',    label: 'Location',   icon: '📍' },
   { route: 'GameWall',    label: 'GameWall',   icon: '🎮', managerOnly: true },
   { route: 'Settings',    label: 'Settings',   icon: '⚙️' },
 ];
@@ -54,7 +56,7 @@ function CustomDrawerContent(props: any) {
 
   const goRoute = (route: string) => {
     // Reset the route's stack to its first screen so revisiting always lands on the root
-    const rootScreen = route === 'Home' ? 'HomeRoot' : route === 'Buddies' ? 'BuddiesRoot' : route === 'GameWall' ? 'GameWallRoot' : undefined;
+    const rootScreen = route === 'Home' ? 'HomeRoot' : route === 'Buddies' ? 'BuddiesRoot' : route === 'GameWall' ? 'GameWallRoot' : route === 'Location' ? 'LocationRoot' : undefined;
     props.navigation.dispatch(
       CommonActions.navigate({ name: route, params: { screen: rootScreen } as any })
     );
@@ -113,6 +115,7 @@ export default function DrawerNavigator() {
         <Drawer.Screen name="RewardPool" component={RewardPoolScreen} options={{ title: 'Reward Pool' }} />
       )}
       <Drawer.Screen name="Reminders" component={RemindersScreen} options={{ title: 'Reminders' }} />
+      <Drawer.Screen name="Location" component={LocationStack} options={{ title: 'Location' }} />
       {isManager && (
         <Drawer.Screen name="GameWall" component={GameWallStack} options={{ title: 'GameWall' }} />
       )}
