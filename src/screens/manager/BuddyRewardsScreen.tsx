@@ -141,50 +141,15 @@ export default function BuddyRewardsScreen({ route, navigation }: any) {
                     try {
                       await claimService.approve(c.id);
                       if (c.minutes && c.kidId) {
+                        // Bank the minutes into the kid's wallet. They spend
+                        // them themselves from the PC's warning toast ("Use
+                        // extra time") — no auto-unlock here.
                         await userService.addMinutes(c.kidId, c.minutes);
-
-                        // Auto-target via assignedMachineId when set;
-                        // otherwise fan out to every PC paired to the
-                        // kid. Either way, push ALLOW immediately so the
-                        // kid can start playing the moment Fulfill taps.
-                        const assignedId = buddy?.assignedMachineId;
-                        const targets = (assignedId
-                          ? machines.filter(m => m.id === assignedId)
-                          : machines);
-                        for (const m of targets) {
-                          try {
-                            await firewallControlService.send(m, 'allow');
-                          } catch { /* per-PC error already toasted */ }
-                        }
-
-                        // Persist the burn so SHUTOFF still fires even
-                        // if this device dies before the timer rings.
-                        const expiresAt = Date.now() + c.minutes * 60_000;
-                        if (familyId) {
-                          try {
-                            const burnId = await screenTimeBurnService.add({
-                              familyId,
-                              kidId: c.kidId,
-                              machineIds: targets.map(m => m.id),
-                              expiresAt,
-                              claimId: c.id,
-                              minutes: c.minutes,
-                            });
-                            // Notifee nudge so the manager isn't blindsided
-                            // when time runs out.
-                            scheduleBurnExpiryNotification({
-                              burnId,
-                              kidName: buddyLabel(c.kidId, buddies),
-                              machineName: targets[0]?.machineName,
-                              fireAt: expiresAt,
-                            }).catch(() => { /* non-fatal */ });
-                          } catch { /* burn-doc write failed; manual shutoff still works */ }
-                        }
                       }
                       if (Platform.OS === 'android') {
                         ToastAndroid.show(
                           c.minutes
-                            ? `✓ +${c.minutes} min — PC unlocked`
+                            ? `✓ +${c.minutes} min banked for ${buddyLabel(c.kidId, buddies)}`
                             : `✓ Fulfilled "${c.rewardTitle}"`,
                           ToastAndroid.SHORT,
                         );

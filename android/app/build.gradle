@@ -83,8 +83,8 @@ android {
         applicationId "com.chorebuddy"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 43
-        versionName "1.42"
+        versionCode 44
+        versionName "1.43"
         // Google Maps key for react-native-maps. Set CHOREBUDDY_MAPS_API_KEY
         // in gradle.properties (gitignored, like the release keystore creds).
         // Empty fallback keeps dev builds compiling; the map just won't render
