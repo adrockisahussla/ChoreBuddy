@@ -18,7 +18,10 @@ export const inviteService = {
     if (!data.familyId) throw new Error('Cannot create invite: missing familyId');
     const token = generateToken();
     const email = (data.email || '').toLowerCase();
-    const ref = await col().add({
+    // Key the doc by the token so recipients can fetch it by code alone
+    // (doc id = the secret), which is what the security rules gate `get` on.
+    const ref = col().doc(token);
+    await ref.set({
       ...data,
       email,
       token,
@@ -57,10 +60,14 @@ export const inviteService = {
   revoke: (id: string) =>
     col().doc(id).delete(),
   findByToken: async (token: string): Promise<Invite | null> => {
-    const snap = await col().where('token', '==', token).where('status', '==', 'pending').limit(1).get();
-    if (snap.empty) return null;
-    const d = snap.docs[0];
-    return { id: d.id, ...(d.data() as any) } as Invite;
+    // Invites are keyed by token, so fetch by doc id (works for a code-holder
+    // who isn't yet in the family). Skip used/expired codes.
+    const snap = await col().doc(token.trim().toUpperCase()).get();
+    if (!snap.exists) return null;
+    const d = snap.data() as any;
+    if (!d || d.status !== 'pending') return null;
+    if (d.expiresAt && d.expiresAt < Date.now()) return null;
+    return { id: snap.id, ...d } as Invite;
   },
   /** Used at first sign-in: find a pending invite for this email so the
    *  new user joins the inviter's family instead of starting a new one. */

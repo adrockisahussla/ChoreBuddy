@@ -88,11 +88,23 @@ service cloud.firestore {
     }
 
     match /invites/{id} {
-      allow read: if inMyFamily(resource.data.familyId)
+      // The doc id IS the invite token (a random secret code). A signed-in
+      // user who knows the code may read that one invite (so code-based join
+      // works without needing the email to match) — but `list` stays scoped
+      // so nobody can enumerate other families' invites.
+      allow get: if isSignedIn();
+      allow list: if inMyFamily(resource.data.familyId)
         || (isSignedIn() && request.auth.token.email != null && resource.data.email != null && request.auth.token.email.lower() == resource.data.email.lower());
       allow create: if inMyFamily(request.resource.data.familyId);
+      // Managers in the family manage freely. A code-holder may ONLY flip a
+      // pending invite to accepted — never change family, role, or token.
       allow update: if inMyFamily(resource.data.familyId)
-        || (isSignedIn() && request.auth.token.email != null && resource.data.email != null && request.auth.token.email.lower() == resource.data.email.lower());
+        || (isSignedIn()
+            && resource.data.status == 'pending'
+            && request.resource.data.status == 'accepted'
+            && request.resource.data.familyId == resource.data.familyId
+            && request.resource.data.role == resource.data.role
+            && request.resource.data.token == resource.data.token);
       allow delete: if inMyFamily(resource.data.familyId);
     }
 

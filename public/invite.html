@@ -150,8 +150,8 @@
     </div>
 
     <div class="join-card" id="joinCard" style="display:none;">
-      <div class="join-title">📱 iPhone, or no app? Join right here</div>
-      <div class="join-sub">No download needed — register on this page and your family manager can set up your devices.</div>
+      <div class="join-title">🚀 Step 1 — join your family</div>
+      <div class="join-sub">Sign in here with your invite code (works on any phone). Then install the app and sign in with the same account.</div>
       <div class="join-status" id="joinStatus"></div>
       <a class="btn" id="googleBtn" href="javascript:void(0)" style="margin-top:0;">Continue with Google</a>
       <a class="btn secondary" id="emailLinkBtn" href="javascript:void(0)">Email me a sign-in link</a>
@@ -165,15 +165,15 @@
 
     <div class="step">
       <div class="step-num">1</div>
-      <div class="step-text">Install ChoreBuddy on your phone</div>
+      <div class="step-text">Tap "Continue with Google" above — joins you with this code</div>
     </div>
     <div class="step">
       <div class="step-num">2</div>
-      <div class="step-text">Open it, tap "Join a family"</div>
+      <div class="step-text">Install ChoreBuddy on your Android phone</div>
     </div>
     <div class="step">
       <div class="step-num">3</div>
-      <div class="step-text">Type the invite code above</div>
+      <div class="step-text">Open it and sign in with the same account — you're in</div>
     </div>
 
     <a class="btn" id="installBtn" href="#" target="_blank" rel="noopener">📥 Install ChoreBuddy (APK)</a>
@@ -272,10 +272,14 @@
     async function runJoin(user) {
       try {
         setStatus('Finishing up…');
-        var snap = await db.collection('invites')
-          .where('token', '==', joinToken).where('status', '==', 'pending').limit(1).get();
-        if (snap.empty) { setStatus('This invite code is invalid or already used — ask for a new one.'); return; }
-        var inv = snap.docs[0], d = inv.data();
+        // Invites are keyed by their token, so fetch by doc id — works for any
+        // signed-in user who has the code, no email match required.
+        var inv = db.collection('invites').doc(joinToken);
+        var snap = await inv.get();
+        if (!snap.exists) { setStatus('That invite code wasn’t found. Ask for a fresh link.'); return; }
+        var d = snap.data();
+        if (d.status !== 'pending') { setStatus('This invite was already used. Ask for a new one.'); return; }
+        if (d.expiresAt && d.expiresAt < Date.now()) { setStatus('This invite link has expired (they last 24h). Ask for a new one.'); return; }
         var userDoc = {
           uid: user.uid,
           familyId: d.familyId,
@@ -286,11 +290,11 @@
         };
         if (d.avatar) userDoc.avatar = d.avatar;
         await db.collection('users').doc(user.uid).set(userDoc, { merge: true });
-        await inv.ref.update({ status: 'accepted', acceptedAt: Date.now(), acceptedByUid: user.uid });
+        await inv.update({ status: 'accepted', acceptedAt: Date.now(), acceptedByUid: user.uid });
         showDone(d.suggestedName ? (d.suggestedName + "'s family") : 'your family');
       } catch (e) {
         if (e && e.code === 'permission-denied') {
-          setStatus('Please sign in with the email this invite was sent to' + (emailParam ? (' (' + emailParam + ')') : '') + '.');
+          setStatus('Couldn’t join with this code — it may be expired or already used. Ask for a fresh link.');
         } else {
           setStatus('Could not join: ' + ((e && e.message) ? e.message : e));
         }
