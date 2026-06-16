@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChoreBuddy — Dashboard</title>
+<style>
+  :root{--accent:#f6339a;--purple:#ad46ff;--text:#1a1a2e;--muted:#6b6b78;--line:#ececf2;--bg:#f6f5f9;
+    --good:#16a34a;--bad:#e11d48;--soft:#faf3fb;}
+  *{box-sizing:border-box;font-family:-apple-system,"Segoe UI",Roboto,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  body{margin:0;background:var(--bg);color:var(--text)}
+  .top{display:flex;align-items:center;justify-content:space-between;background:#fff;border-bottom:1px solid var(--line);padding:14px 26px}
+  .brand{display:inline-flex;align-items:center;gap:9px;font-weight:900;font-size:19px}
+  .brand .logo{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#ad46ff,#f6339a,#fb2c36);display:flex;align-items:center;justify-content:center;font-size:17px}
+  .brand .seg{color:var(--muted);font-weight:600;font-size:14px}
+  .me{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+  .av{width:30px;height:30px;border-radius:50%;background:#ad46ff;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}
+  .btn{border:1px solid var(--line);border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:700;background:#fff;cursor:pointer}
+
+  .wrap{max-width:1080px;margin:0 auto;padding:24px}
+  .scopebar{display:flex;align-items:center;gap:14px;margin-bottom:22px;flex-wrap:wrap}
+  .seg-ctl{display:inline-flex;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:11px;padding:4px;gap:2px}
+  .seg-ctl button{border:none;background:none;padding:8px 14px;border-radius:8px;font-size:13.5px;font-weight:700;color:var(--muted);cursor:pointer}
+  .seg-ctl button.on{background:var(--text);color:#fff}
+  .range{margin-left:auto;display:inline-flex;background:#fff;border:1px solid var(--line);border-radius:9px;padding:3px;gap:2px}
+  .range button{border:none;background:none;padding:6px 12px;border-radius:7px;font-size:12.5px;font-weight:700;color:var(--muted);cursor:pointer}
+  .range button.on{background:var(--text);color:#fff}
+
+  h1.title{font-size:24px;margin:0}
+  .subline{color:var(--muted);font-size:13.5px;margin:3px 0 18px}
+  .note{background:#fff7e6;border:1px solid #f6e2b3;color:#9a6b00;border-radius:10px;padding:10px 14px;font-size:12.5px;margin-bottom:20px}
+
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:26px}
+  .kpi{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 1px 3px rgba(30,20,50,.04)}
+  .kpi .l{font-size:12.5px;color:var(--muted);font-weight:700}
+  .kpi .v{font-size:30px;font-weight:900;margin:7px 0 3px;letter-spacing:-.5px}
+  .kpi .s{font-size:12px;color:var(--muted)}
+
+  .section{margin-bottom:26px}
+  .section h2{font-size:14px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:0 0 12px}
+  .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+  .stat{background:#fff;border:1px solid var(--line);border-radius:13px;padding:14px}
+  .stat .l{font-size:11.5px;color:var(--muted);font-weight:700;line-height:1.3}
+  .stat .v{font-size:23px;font-weight:900;margin-top:6px}
+  .stat .v.bad{color:var(--bad)}
+
+  table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:13px;overflow:hidden}
+  th,td{text-align:left;padding:12px 16px;font-size:13.5px;border-bottom:1px solid var(--line)}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  tr:last-child td{border-bottom:none}
+  td .nm{font-weight:800}
+
+  /* gate / states */
+  .center{min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(1200px 500px at 50% -10%,#fbe6f3,transparent),var(--bg)}
+  .card2{background:#fff;border:1px solid var(--line);border-radius:20px;padding:40px 38px;width:390px;text-align:center;box-shadow:0 18px 50px rgba(120,40,140,.12)}
+  .card2 h1{font-size:21px;margin:16px 0 6px}
+  .card2 p{color:var(--muted);font-size:13.5px;line-height:1.5;margin:0 0 24px}
+  .gbtn{display:flex;align-items:center;justify-content:center;gap:11px;width:100%;background:#fff;border:1px solid #dadce0;border-radius:10px;padding:12px;font-size:14.5px;font-weight:600;color:#3c4043;cursor:pointer}
+  .lock{margin-top:16px;font-size:12px;color:var(--muted)}
+  .err{color:var(--bad);font-weight:700;font-size:13px;margin-top:14px}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<!-- GATE -->
+<div id="gate" class="center">
+  <div class="card2">
+    <div class="brand" style="justify-content:center"><span class="logo">🐻</span> ChoreBuddy</div>
+    <h1>Manager Dashboard</h1>
+    <p>Family stats — chores, points, rewards and screen time. Managers only.</p>
+    <button class="gbtn" id="signin">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.6 2.4 30.2 0 24 0 14.6 0 6.4 5.4 2.5 13.3l7.9 6.1C12.3 13.2 17.6 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.4 5.7c4.3-4 6.2-9.9 6.2-17.4z"/><path fill="#FBBC05" d="M10.4 28.6c-.5-1.5-.8-3-.8-4.6s.3-3.1.8-4.6l-7.9-6.1C.9 16.5 0 20.1 0 24s.9 7.5 2.5 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.2 0 11.5-2 15.3-5.5l-7.4-5.7c-2 1.4-4.7 2.3-7.9 2.3-6.4 0-11.7-3.7-13.6-9.1l-7.9 6.1C6.4 42.6 14.6 48 24 48z"/></svg>
+      Sign in with Google
+    </button>
+    <div class="lock">🔒 Restricted to ChoreBuddy managers</div>
+    <div class="err hidden" id="gateErr"></div>
+  </div>
+</div>
+
+<!-- DENIED -->
+<div id="denied" class="center hidden">
+  <div class="card2">
+    <div class="brand" style="justify-content:center"><span class="logo">🐻</span> ChoreBuddy</div>
+    <h1>No access</h1>
+    <p id="deniedMsg">This dashboard is for family managers only.</p>
+    <button class="btn" id="signout2">Sign out</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden">
+  <div class="top">
+    <div class="brand"><span class="logo">🐻</span> ChoreBuddy <span class="seg">· Dashboard</span></div>
+    <div class="me"><span id="meEmail"></span><span class="av" id="meAv">A</span><button class="btn" id="signout">Sign out</button></div>
+  </div>
+  <div class="wrap">
+    <div class="scopebar">
+      <div class="seg-ctl" id="seg"></div>
+      <div class="range" id="range">
+        <button data-r="month" class="on">This month</button>
+        <button data-r="all">All time</button>
+      </div>
+    </div>
+    <div id="view"></div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+firebase.initializeApp({
+  apiKey: "AIzaSyCn5Vj7oFm-76PsL4vRWfmbGjqEboIhl1M",
+  authDomain: "chorebuddy-67a5f.firebaseapp.com",
+  projectId: "chorebuddy-67a5f",
+  storageBucket: "chorebuddy-67a5f.firebasestorage.app",
+  messagingSenderId: "858139388832",
+  appId: "1:858139388832:web:0f5fcd224ba29b9f5e92c5"
+});
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+const $ = id => document.getElementById(id);
+const show = (id) => { ['gate','denied','app'].forEach(s=>$(s).classList.toggle('hidden', s!==id)); };
+
+$('signin').onclick = () => {
+  $('gateErr').classList.add('hidden');
+  auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())
+    .catch(e => { $('gateErr').textContent = e.message; $('gateErr').classList.remove('hidden'); });
+};
+$('signout').onclick = $('signout2').onclick = () => auth.signOut();
+
+let DATA = null;       // {members, chores, claims, rewards, reminders, me, family}
+let scope = 'family';
+let range = 'month';
+
+const chorePoints = c => Number.isFinite(c && c.points) ? c.points : 10;
+const monthStart = (() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).getTime(); })();
+const inR = ts => range === 'all' ? true : (!!ts && ts >= monthStart);
+const hrs = mins => (mins/60).toFixed(mins % 60 ? 1 : 0) + 'h';
+const pct = (a,b) => b ? Math.round(a/b*100) + '%' : '—';
+
+// ---- engagement (from the `usage` collection) ----
+const dayKey = d => `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+const monthKeyStr = (()=>{const d=new Date();return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}01`;})();
+const fmtDur = ms => { if(!ms) return '—'; const m=Math.round(ms/60000); return m<60 ? m+'m' : (m/60).toFixed(1)+'h'; };
+const fmtAvg = (ms,opens) => { if(!opens||!ms) return '—'; const s=Math.round(ms/opens/1000); return s<60 ? s+'s' : Math.floor(s/60)+'m '+(s%60)+'s'; };
+const fmtAgo = ts => { if(!ts) return '—'; const m=Math.round((Date.now()-ts)/60000); if(m<1) return 'just now'; if(m<60) return m+'m ago'; const h=Math.round(m/60); if(h<24) return h+'h ago'; return Math.round(h/24)+'d ago'; };
+function eng(uids){
+  const set=new Set(uids);
+  const docs=(DATA.usage||[]).filter(u=>set.has(u.uid) && (range==='all' || u.date>=monthKeyStr));
+  const opens=docs.reduce((s,u)=>s+(u.opens||0),0);
+  const activeMs=docs.reduce((s,u)=>s+(u.activeMs||0),0);
+  const last=docs.reduce((m,u)=>Math.max(m,u.lastActiveAt||0),0);
+  const screens={}; docs.forEach(u=>Object.entries(u.screens||{}).forEach(([k,v])=>screens[k]=(screens[k]||0)+v));
+  const topScreen=Object.entries(screens).sort((a,b)=>b[1]-a[1])[0];
+  return {opens,activeMs,last,docs,topScreen,count:docs.length};
+}
+function streak(uid){
+  const days=new Set((DATA.usage||[]).filter(u=>u.uid===uid).map(u=>u.date));
+  let n=0; const d=new Date();
+  if(!days.has(dayKey(d))) d.setDate(d.getDate()-1); // grace: streak may end yesterday
+  while(days.has(dayKey(d))){ n++; d.setDate(d.getDate()-1); }
+  return n;
+}
+function engSection(uids){
+  const e=eng(uids);
+  const cards=[{l:'App opens',v:e.opens||'—'},{l:'Time in app',v:fmtDur(e.activeMs)}];
+  if(uids.length===1){
+    cards.push({l:'Avg session',v:fmtAvg(e.activeMs,e.opens)});
+    const s=streak(uids[0]); cards.push({l:'Streak',v:s?s+'d':'—'});
+  } else {
+    cards.push({l:'Active days',v:e.count?new Set(e.docs.map(d=>d.date)).size:'—'});
+    cards.push({l:'Top screen',v:e.topScreen?e.topScreen[0]:'—'});
+  }
+  cards.push({l:'Last active',v:fmtAgo(e.last)});
+  return {h:'Engagement', cards};
+}
+
+auth.onAuthStateChanged(async user => {
+  if (!user) { show('gate'); return; }
+  try {
+    const meDoc = await db.collection('users').doc(user.uid).get();
+    const me = meDoc.exists ? meDoc.data() : null;
+    if (!me || me.role !== 'manager') {
+      $('deniedMsg').textContent = me
+        ? 'Your account is a Buddy. The dashboard is for managers only.'
+        : 'This Google account isn’t linked to a ChoreBuddy family.';
+      show('denied'); return;
+    }
+    await loadFamily(user, me);
+  } catch (e) {
+    $('deniedMsg').textContent = 'Could not load your data: ' + e.message;
+    show('denied');
+  }
+});
+
+async function loadFamily(user, me) {
+  const fam = me.familyId;
+  const q = col => db.collection(col).where('familyId','==',fam).get().then(s=>s.docs.map(d=>d.data()));
+  const [members, chores, claims, rewards, reminders, usage] = await Promise.all([
+    q('users'), q('chores'), q('rewardClaims'), q('rewards'), q('reminders'), q('usage')
+  ]);
+  DATA = { members, chores, claims, rewards, reminders, usage, me, fam };
+  $('meEmail').textContent = user.email || me.displayName || '';
+  $('meAv').textContent = (me.displayName || 'M').charAt(0).toUpperCase();
+
+  // scope buttons: Family + every member
+  const seg = $('seg');
+  seg.innerHTML = `<button data-k="family">Family</button>` + members
+    .slice().sort((a,b)=> (a.role===b.role?0:a.role==='manager'?-1:1))
+    .map(m => `<button data-k="${m.uid}">${(m.displayName||'User')} · ${m.role==='manager'?'Mgr':'Buddy'}</button>`).join('');
+  seg.querySelectorAll('button').forEach(b => b.onclick = () => { scope = b.dataset.k; render(); });
+  $('range').querySelectorAll('button').forEach(b => b.onclick = () => { range = b.dataset.r; $('range').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b)); render(); });
+
+  show('app'); render();
+}
+
+// ---- stat builders ----
+function familyStats() {
+  const { members, chores, claims, rewards, reminders } = DATA;
+  const buddies = members.filter(m=>m.role==='buddy');
+  const assigned = chores.filter(c=>inR(c.createdAt));
+  const approved = chores.filter(c=>c.status==='approved' && inR(c.completedAt));
+  const rejected = chores.filter(c=>c.status==='rejected' && inR(c.createdAt));
+  const overdue = chores.filter(c=>c.status==='todo' && c.dueDate && c.dueDate<Date.now());
+  const fulfilled = claims.filter(c=>c.status==='approved' && inR(c.resolvedAt));
+  const earned = approved.reduce((s,c)=>s+chorePoints(c),0);
+  const redeemed = fulfilled.reduce((s,c)=>s+(c.cost||0),0);
+  const minutes = fulfilled.reduce((s,c)=>s+(c.minutes||0),0);
+  return {
+    title: 'Family', sub: `${members.length} members · ${range==='all'?'all time':'this month'}`,
+    kpis: [
+      {l:'Members',v:members.length,s:`${buddies.length} buddies`},
+      {l:'Chores completed',v:approved.length,s:`of ${assigned.length} created`},
+      {l:'Completion rate',v:pct(approved.length,assigned.length)},
+      {l:'Points in circulation',v:earned-redeemed,s:`${earned} earned · ${redeemed} spent`},
+      {l:'Screen time redeemed',v:hrs(minutes)},
+      {l:'Reward redemptions',v:fulfilled.length},
+    ],
+    sec: [
+      {h:'Chores', cards:[
+        {l:'Created',v:assigned.length},{l:'Completed',v:approved.length},
+        {l:'Overdue now',v:overdue.length,bad:overdue.length>0},{l:'Rejected',v:rejected.length},
+        {l:'Reminders',v:reminders.length}]},
+      {h:'Points & rewards', cards:[
+        {l:'Points earned',v:earned},{l:'Points redeemed',v:redeemed},
+        {l:'Redemptions',v:fulfilled.length},{l:'Rewards offered',v:rewards.filter(r=>r.status==='active').length},
+        {l:'Minutes redeemed',v:minutes}]},
+      engSection(members.map(m=>m.uid)),
+    ],
+    board: buddies.map(b=>{
+      const bc = chores.filter(c=>c.assignedTo===b.uid);
+      const ba = bc.filter(c=>c.status==='approved' && inR(c.completedAt));
+      const bAssigned = bc.filter(c=>inR(c.createdAt));
+      const bEarn = bc.filter(c=>c.status==='approved' && inR(c.completedAt)).reduce((s,c)=>s+chorePoints(c),0);
+      const bSpent = claims.filter(c=>c.kidId===b.uid && c.status==='approved' && inR(c.resolvedAt)).reduce((s,c)=>s+(c.cost||0),0);
+      return { name:b.displayName||'Buddy', comp:pct(ba.length,bAssigned.length), pts:bEarn-bSpent };
+    }).sort((a,b)=>parseInt(b.comp)-parseInt(a.comp)),
+  };
+}
+
+function memberStats(uid) {
+  const { members, chores, claims, reminders } = DATA;
+  const m = members.find(x=>x.uid===uid) || {};
+  if (m.role === 'manager') {
+    const created = chores.filter(c=>c.createdBy===uid && inR(c.createdAt));
+    const fulfilled = claims.filter(c=>c.status==='approved' && inR(c.resolvedAt));
+    const approvedAll = chores.filter(c=>c.status==='approved' && inR(c.completedAt));
+    const rejectedAll = chores.filter(c=>c.status==='rejected' && inR(c.createdAt));
+    const remCreated = reminders.filter(r=>r.createdBy===uid).length;
+    return {
+      title: `${m.displayName||'Manager'} · Manager`, sub: range==='all'?'all time':'this month',
+      kpis: [
+        {l:'Chores created',v:created.length},
+        {l:'Approved (family)',v:approvedAll.length},
+        {l:'Rejected (family)',v:rejectedAll.length},
+        {l:'Claims fulfilled',v:fulfilled.length},
+        {l:'Reminders created',v:remCreated},
+        {l:'Role',v:'Manager'},
+      ],
+      sec: [
+        {h:'Review activity', cards:[
+          {l:'Approved',v:approvedAll.length},{l:'Rejected',v:rejectedAll.length},
+          {l:'Claims fulfilled',v:fulfilled.length},{l:'Chores created',v:created.length},
+          {l:'Reminders created',v:remCreated}]},
+        engSection([uid]),
+      ],
+    };
+  }
+  // buddy
+  const bc = chores.filter(c=>c.assignedTo===uid);
+  const assigned = bc.filter(c=>inR(c.createdAt));
+  const approved = bc.filter(c=>c.status==='approved' && inR(c.completedAt));
+  const rejected = bc.filter(c=>c.status==='rejected' && inR(c.createdAt));
+  const overdue = bc.filter(c=>c.status==='todo' && c.dueDate && c.dueDate<Date.now());
+  const myClaims = claims.filter(c=>c.kidId===uid && c.status==='approved' && inR(c.resolvedAt));
+  const earned = approved.reduce((s,c)=>s+chorePoints(c),0);
+  const spent = myClaims.reduce((s,c)=>s+(c.cost||0),0);
+  const minutes = myClaims.reduce((s,c)=>s+(c.minutes||0),0);
+  const remAssigned = reminders.filter(r=>r.assignedTo===uid).length;
+  return {
+    title: `${m.displayName||'Buddy'} · Buddy`, sub: range==='all'?'all time':'this month',
+    kpis: [
+      {l:'Completion rate',v:pct(approved.length,assigned.length)},
+      {l:'Chores completed',v:approved.length,s:`of ${assigned.length}`},
+      {l:'Points balance',v:earned-spent,s:`${earned} earned`},
+      {l:'Screen time redeemed',v:hrs(minutes)},
+      {l:'Reward redemptions',v:myClaims.length},
+      {l:'Minutes (this account)',v:Number.isFinite(m.minutesRemaining)?m.minutesRemaining:'—'},
+    ],
+    sec: [
+      {h:'Chores', cards:[
+        {l:'Assigned',v:assigned.length},{l:'Completed',v:approved.length},
+        {l:'Overdue now',v:overdue.length,bad:overdue.length>0},{l:'Rejected',v:rejected.length},
+        {l:'Completion %',v:pct(approved.length,assigned.length)}]},
+      {h:'Points & rewards', cards:[
+        {l:'Earned',v:earned},{l:'Spent',v:spent},{l:'Balance',v:earned-spent},
+        {l:'Redemptions',v:myClaims.length},{l:'Minutes redeemed',v:minutes}]},
+      {h:'Reminders', cards:[{l:'Assigned to them',v:remAssigned}]},
+      engSection([uid]),
+    ],
+  };
+}
+
+function render() {
+  const d = scope === 'family' ? familyStats() : memberStats(scope);
+  let h = `<h1 class="title">${d.title}</h1><div class="subline">${d.sub}</div>`;
+  if (!(DATA.usage && DATA.usage.length))
+    h += `<div class="note">📊 Engagement metrics populate once family devices update to the build with usage logging. Everything else is live now.</div>`;
+  h += `<div class="kpis">${d.kpis.map(k=>`<div class="kpi"><div class="l">${k.l}</div><div class="v">${k.v}</div><div class="s">${k.s||''}</div></div>`).join('')}</div>`;
+  d.sec.forEach(s=>{ h += `<div class="section"><h2>${s.h}</h2><div class="grid">${s.cards.map(c=>`<div class="stat"><div class="l">${c.l}</div><div class="v ${c.bad?'bad':''}">${c.v}</div></div>`).join('')}</div></div>`; });
+  if (d.board && d.board.length) h += `<div class="section"><h2>Leaderboard</h2><table><tr><th>Buddy</th><th>Completion</th><th>Points</th></tr>${d.board.map(r=>`<tr><td class="nm">${r.name}</td><td>${r.comp}</td><td>${r.pts}</td></tr>`).join('')}</table></div>`;
+  document.querySelectorAll('#seg button').forEach(b=>b.classList.toggle('on', b.dataset.k===scope));
+  $('view').innerHTML = h;
+}
+</script>
+</body>
+</html>

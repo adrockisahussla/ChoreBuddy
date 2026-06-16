@@ -13,6 +13,8 @@ import { ConfirmProvider } from './src/components/ConfirmModal';
 import { CelebrationProvider } from './src/components/Celebration';
 import SubmissionToasts from './src/components/SubmissionToasts';
 import ReminderAlarmHost from './src/components/ReminderAlarmHost';
+import UsageTracker from './src/components/UsageTracker';
+import { navigationRef } from './src/navigation/navigationRef';
 import { CurrentUserProvider } from './src/hooks/useCurrentUser';
 import { TextScaleProvider } from './src/context/TextScaleContext';
 import { getTextScale } from './src/utils/textScale';
@@ -121,10 +123,11 @@ export default function App() {
               <CelebrationProvider>
                 <SubmissionToasts />
                 <ConfirmProvider>
-                  <NavigationContainer linking={linking}>
+                  <NavigationContainer ref={navigationRef} linking={linking}>
                     <DrawerNavigator />
                   </NavigationContainer>
                 </ConfirmProvider>
+                <UsageTracker />
                 <ReminderAlarmHost />
                 <ReminderSchedulerHost />
                 <PermissionsBoot />

@@ -150,6 +150,16 @@ service cloud.firestore {
       }
     }
 
+    // Usage telemetry — one rolled-up doc per user per day
+    // (id = `${uid}_${YYYYMMDD}`). A user writes only their OWN doc; any
+    // family member can read (the manager dashboard aggregates these).
+    match /usage/{id} {
+      allow read: if inMyFamily(resource.data.familyId);
+      allow create, update: if isMe(request.resource.data.uid)
+        && inMyFamily(request.resource.data.familyId);
+      allow delete: if amManager() && inMyFamily(resource.data.familyId);
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
