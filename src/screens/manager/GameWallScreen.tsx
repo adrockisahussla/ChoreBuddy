@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View, TouchableOpacity, Platform, ToastAndroid, StyleSheet, Text as RNText } from 'react-native';
+import { ScrollView, View, TouchableOpacity, Platform, ToastAndroid, StyleSheet, Modal, TextInput, Text as RNText } from 'react-native';
 import { theme } from '../../theme';
 import { useBuddies } from '../../hooks/useBuddies';
 import { firewallControlService, Machine } from '../../services/firewallControlService';
@@ -16,7 +16,29 @@ export default function GameWallScreen({ navigation }: any) {
   const kids = buddies.filter(b => b.role === 'buddy');
   const [machines, setMachines] = useState<Machine[]>([]);
   const [updating, setUpdating] = useState(false);
+  const [msgOpen, setMsgOpen] = useState(false);
+  const [msgText, setMsgText] = useState('');
+  const [sending, setSending] = useState(false);
   const confirm = useConfirm();
+
+  const sendMessage = async () => {
+    const text = msgText.trim();
+    if (!text || machines.length === 0) return;
+    setSending(true);
+    try {
+      const { ok, fail } = await firewallControlService.messageAll(machines, text);
+      setMsgOpen(false);
+      setMsgText('');
+      if (Platform.OS === 'android') {
+        ToastAndroid.show(
+          fail === 0 ? `💬 Sent to ${ok} PC${ok === 1 ? '' : 's'}` : `Sent ${ok}, failed ${fail}`,
+          ToastAndroid.LONG,
+        );
+      }
+    } finally {
+      setSending(false);
+    }
+  };
 
   useEffect(() => {
     const unsub = firewallControlService.subscribeAll(setMachines);
@@ -64,6 +86,12 @@ export default function GameWallScreen({ navigation }: any) {
           </TouchableOpacity>
         )}
 
+        {machines.length > 0 && (
+          <TouchableOpacity style={s.msgBtn} onPress={() => setMsgOpen(true)} activeOpacity={0.7}>
+            <RNText style={s.msgBtnText}>💬 Message all PCs ({machines.length})</RNText>
+          </TouchableOpacity>
+        )}
+
         <Text variant="sectionLabel" style={{ marginBottom: 10 }}>Buddies</Text>
 
         {loading ? (
@@ -88,6 +116,39 @@ export default function GameWallScreen({ navigation }: any) {
           </Card>
         ))}
       </ScrollView>
+
+      <Modal visible={msgOpen} transparent animationType="fade" onRequestClose={() => setMsgOpen(false)}>
+        <View style={s.scrim}>
+          <View style={s.sheet}>
+            <Text variant="h3" style={{ fontSize: 17, marginBottom: 4 }}>Message all PCs</Text>
+            <Text variant="meta" style={{ fontSize: 12, marginBottom: 12 }}>
+              Pops up on every paired computer ({machines.length}).
+            </Text>
+            <TextInput
+              style={s.input}
+              value={msgText}
+              onChangeText={setMsgText}
+              placeholder="e.g. Dinner in 10 minutes — wrap it up!"
+              placeholderTextColor={theme.colors.muted}
+              multiline
+              maxLength={300}
+              autoFocus
+            />
+            <View style={s.row}>
+              <TouchableOpacity style={s.cancelBtn} onPress={() => setMsgOpen(false)} disabled={sending}>
+                <RNText style={s.cancelText}>Cancel</RNText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.sendBtn, (!msgText.trim() || sending) && { opacity: 0.5 }]}
+                onPress={sendMessage}
+                disabled={!msgText.trim() || sending}
+              >
+                <RNText style={s.sendText}>{sending ? 'Sending…' : 'Send'}</RNText>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -102,4 +163,20 @@ const s = StyleSheet.create({
   },
   updateAllBtnBusy: { opacity: 0.6 },
   updateAllText: { color: '#fff', fontWeight: '900', fontSize: 14, letterSpacing: 0.3 },
+  msgBtn: {
+    backgroundColor: theme.colors.blue,
+    paddingVertical: 14, borderRadius: theme.radius.lg, alignItems: 'center', marginBottom: 16,
+  },
+  msgBtnText: { color: '#fff', fontWeight: '900', fontSize: 14, letterSpacing: 0.3 },
+  scrim: { flex: 1, backgroundColor: theme.colors.overlay, justifyContent: 'center', padding: 24 },
+  sheet: { backgroundColor: theme.colors.card, borderRadius: theme.radius.xl, padding: 18 },
+  input: {
+    minHeight: 96, borderWidth: 1.5, borderColor: theme.colors.cardBorder, borderRadius: theme.radius.md,
+    padding: 12, fontSize: 15, color: theme.colors.text, textAlignVertical: 'top',
+  },
+  row: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 14 },
+  cancelBtn: { paddingVertical: 12, paddingHorizontal: 18, borderRadius: 999 },
+  cancelText: { color: theme.colors.muted, fontWeight: '800', fontSize: 14 },
+  sendBtn: { backgroundColor: theme.colors.accent, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 999 },
+  sendText: { color: '#fff', fontWeight: '900', fontSize: 14 },
 });

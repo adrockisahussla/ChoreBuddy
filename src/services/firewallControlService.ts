@@ -15,8 +15,9 @@ export interface Machine {
 /** Push the command to RTDB (the channel the PC agent listens on) — instant. */
 async function pushRtdb(
   machineId: string,
-  cmd: 'shutoff' | 'allow' | 'update' | 'reload-schedule' | 'resume-schedule',
+  cmd: 'shutoff' | 'allow' | 'update' | 'reload-schedule' | 'resume-schedule' | 'message',
   ts: number,
+  extra?: Record<string, any>,
 ) {
   const u = auth().currentUser;
   if (!u) throw new Error('Not signed in');
@@ -25,7 +26,7 @@ async function pushRtdb(
   const r = await fetch(url, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ command: cmd, timestamp: ts }),
+    body: JSON.stringify({ command: cmd, timestamp: ts, ...(extra || {}) }),
   });
   if (!r.ok) throw new Error(`RTDB ${r.status}: ${await r.text()}`);
 }
@@ -89,6 +90,20 @@ export const firewallControlService = {
     let ok = 0, fail = 0;
     for (const d of snap.docs) {
       try { await pushRtdb(d.id, 'resume-schedule', ts); ok++; }
+      catch { fail++; }
+    }
+    return { ok, fail };
+  },
+
+  /** Broadcast a manager text message to every paired PC. Agents on
+   *  v1.0.8+ show it as an on-screen toast; older agents ignore it. */
+  messageAll: async (machines: Machine[], text: string) => {
+    const body = text.trim().slice(0, 300);
+    if (!body) return { ok: 0, fail: 0 };
+    const ts = Date.now();
+    let ok = 0, fail = 0;
+    for (const m of machines) {
+      try { await pushRtdb(m.id, 'message', ts, { text: body }); ok++; }
       catch { fail++; }
     }
     return { ok, fail };
